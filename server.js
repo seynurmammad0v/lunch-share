@@ -79,18 +79,26 @@ app.post('/api/skip', (req, res) => {
   if (!name) return res.status(400).json({ error: 'invalid_name' });
   const date = todayStr();
   touchPerson(name);
-  db.prepare(`INSERT INTO skips (date, name) VALUES (?, ?)
-              ON CONFLICT(date, name) DO UPDATE SET claimed_by = NULL`)
+  // идемпотентно: повторная отметка НЕ сбрасывает уже совершённый claim
+  db.prepare(`INSERT OR IGNORE INTO skips (date, name) VALUES (?, ?)`)
     .run(date, name);
   res.json(getTodayState());
 });
 
-// Отменить отметку (своя порция снова доступна всем, кто был забран — освобождается)
+// Отменить отметку — только если порцию ещё никто не забрал
 app.post('/api/unship', (req, res) => {
   const name = sanitizeName(req.body && req.body.name);
   if (!name) return res.status(400).json({ error: 'invalid_name' });
   const date = todayStr();
-  db.prepare(`DELETE FROM skips WHERE date = ? AND name = ?`).run(date, name);
+  const r = db.prepare(`DELETE FROM skips WHERE date = ? AND name = ? AND claimed_by IS NULL`)
+    .run(date, name);
+  if (r.changes === 0) {
+    // порция уже забрана — отменить отметку нельзя
+    const row = db.prepare(`SELECT claimed_by FROM skips WHERE date = ? AND name = ?`).get(date, name);
+    if (row && row.claimed_by) {
+      return res.status(409).json({ error: 'already_claimed', by: row.claimed_by });
+    }
+  }
   res.json(getTodayState());
 });
 

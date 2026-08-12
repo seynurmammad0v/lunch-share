@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>🍱 Обед — кто не ест</title>
+<title>🍱 Lunch — who's not eating</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍱</text></svg>">
 <style>
   :root {
@@ -32,10 +32,17 @@
     padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
     min-height: 100vh;
   }
-  header { text-align: center; margin-bottom: 20px; }
+  header { text-align: center; margin-bottom: 20px; position: relative; }
   .logo { font-size: 42px; }
   h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
   .date { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .lang-btn {
+    position: absolute; top: 0; right: 0;
+    background: var(--card); border: 1.5px solid #e2ddd4;
+    border-radius: 999px; padding: 6px 12px;
+    font-size: 13px; font-weight: 700; cursor: pointer; color: var(--ink);
+  }
+  .lang-btn:active { background: #f0ede7; }
 
   .banner {
     background: linear-gradient(135deg, #fff7ed, #ffedd5);
@@ -90,6 +97,7 @@
   .big-btn:active { transform: scale(.98); }
   .big-btn.idle { background: linear-gradient(135deg, var(--accent), #f0734a); color: #fff; }
   .big-btn.skipped { background: var(--red-bg); color: var(--red); border: 2px solid #f3c2c2; }
+  .big-btn.claimed { background: var(--green-bg); color: var(--green); border: 2px solid #bfe8d2; }
   .big-btn small { display: block; font-size: 13px; font-weight: 600; margin-top: 4px; opacity: .85; }
 
   /* Карточка человека */
@@ -228,45 +236,46 @@
 <div id="nameOverlay" class="overlay hidden">
   <div class="dialog">
     <div class="d-emoji">🍱</div>
-    <h3>Кто ты?</h3>
-    <p>Введи имя — так коллеги увидят, что ты сегодня не обедаешь</p>
+    <h3 id="dlgTitle">Who are you?</h3>
+    <p id="dlgHint">Enter your name — colleagues will see you're not eating today</p>
     <div id="chips" class="chips"></div>
-    <input id="nameInput" type="text" placeholder="Имя" maxlength="40" autocomplete="name">
-    <button class="btn primary" id="nameSubmit">Продолжить</button>
+    <input id="nameInput" type="text" placeholder="Name" maxlength="40" autocomplete="name">
+    <button class="btn primary" id="nameSubmit">Continue</button>
   </div>
 </div>
 
 <header>
+  <button class="lang-btn" id="langBtn">RU</button>
   <div class="logo">🍱</div>
-  <h1>Кто не обедает</h1>
+  <h1 id="headTitle">Who's not eating</h1>
   <div class="date" id="dateLabel"></div>
 </header>
 
 <div class="banner" id="banner">
-  <b>Как работает:</b> каждый день отмечайся, если <b>не будешь обедать</b> в офисе — твою порцию сможет забрать любой, кто голоден. Порция не пропадёт 😉
+  <b id="howTitle">How it works:</b> <span id="howBody">mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉</span>
 </div>
 
 <div class="card">
   <button class="big-btn idle" id="mainBtn">
-    🚫 Я сегодня не обедаю
-    <small id="mainBtnSub">нажми, если не будешь есть — порция достанется другому</small>
+    🚫 I'm not eating today
+    <small id="mainBtnSub">tap if you won't eat — your meal goes to someone else</small>
   </button>
 </div>
 
 <div class="card">
-  <h2>🆓 Свободные порции <span class="count" id="freeCount">0</span></h2>
+  <h2><span id="freeTitle">🆓 Available meals</span> <span class="count" id="freeCount">0</span></h2>
   <div id="freeList"></div>
-  <div class="empty hidden" id="freeEmpty"><span class="e">🎉</span>Свободных порций нет — все обедают</div>
+  <div class="empty hidden" id="freeEmpty"><span class="e">🎉</span><span id="freeEmptyTxt">No free meals — everyone's eating</span></div>
 </div>
 
 <div class="card">
-  <h2>🤝 Порции разобрали <span class="count" id="claimedCount">0</span></h2>
+  <h2><span id="claimedTitle">🤝 Claimed meals</span> <span class="count" id="claimedCount">0</span></h2>
   <div id="claimedList"></div>
-  <div class="empty hidden" id="claimedEmpty"><span class="e">🍽️</span>Пока никто ничего не забрал</div>
+  <div class="empty hidden" id="claimedEmpty"><span class="e">🍽️</span><span id="claimedEmptyTxt">Nobody claimed anything yet</span></div>
 </div>
 
 <footer>
-  Обновлено <span id="updatedAt">—</span> · <button id="refreshBtn">обновить</button> · <button id="changeNameBtn">сменить имя</button>
+  <span id="updatedPrefix">Updated</span> <span id="updatedAt">—</span> · <button id="refreshBtn" data-i18n="refresh">refresh</button> · <button id="changeNameBtn" data-i18n="changeName">change name</button>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -274,9 +283,82 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const AVATAR_COLORS = ['#e8562a','#1a9c5b','#2f6fed','#9b51e0','#d64545','#0e9aa7','#b7791f','#d53f8c'];
+
+// ===== i18n =====
+const I18N = {
+  en: {
+    dlgTitle: "Who are you?", dlgHint: "Enter your name — colleagues will see you're not eating today",
+    namePlaceholder: "Name", continueBtn: "Continue", headTitle: "Who's not eating",
+    howTitle: "How it works:", howBody: "mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉",
+    mainIdle: "🚫 I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
+    mainSkipped: "✅ Marked: not eating", mainSkippedSub: "tap to cancel (if you changed your mind)",
+    mainClaimed: "🍽️ Your meal was claimed", mainClaimedSub: "you can't cancel — ask who took it to return it",
+    freeTitle: "🆓 Available meals", claimedTitle: "🤝 Claimed meals",
+    freeEmpty: "No free meals — everyone's eating", claimedEmpty: "Nobody claimed anything yet",
+    subSkipped: "not eating today", subClaimed: "claimed by",
+    claimBtn: "I'll take it 🍽️", returnBtn: "Return",
+    myClaim: "You claimed", updatedPrefix: "Updated", refresh: "refresh", changeName: "change name",
+    toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
+    toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
+    toastUnclaimed: "Meal is available again", toastCantCancel: "Meal already claimed — ask them to return it",
+    toastLoad: "Couldn't load 😕", toastErr: "Something went wrong 😕", toastInvalidName: "Invalid name",
+    toastEnterName: "Enter your name", toastTooLong: "Name is too long", toastBadChars: "Name has invalid characters",
+    months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+  },
+  ru: {
+    dlgTitle: "Кто ты?", dlgHint: "Введи имя — так коллеги увидят, что ты сегодня не обедаешь",
+    namePlaceholder: "Имя", continueBtn: "Продолжить", headTitle: "Кто не обедает",
+    howTitle: "Как работает:", howBody: "каждый день отмечайся, если не будешь обедать в офисе — твою порцию сможет забрать любой, кто голоден. Порция не пропадёт 😉",
+    mainIdle: "🚫 Я сегодня не обедаю", mainIdleSub: "нажми, если не будешь есть — порция достанется другому",
+    mainSkipped: "✅ Я отметился: не обедаю", mainSkippedSub: "нажми, чтобы отменить (если передумал)",
+    mainClaimed: "🍽️ Твою порцию забрали", mainClaimedSub: "отменить нельзя — попроси того, кто забрал, вернуть",
+    freeTitle: "🆓 Свободные порции", claimedTitle: "🤝 Порции разобрали",
+    freeEmpty: "Свободных порций нет — все обедают", claimedEmpty: "Пока никто ничего не забрал",
+    subSkipped: "не обедает сегодня", subClaimed: "забрал(а):",
+    claimBtn: "Заберу 🍽️", returnBtn: "Вернуть",
+    myClaim: "Ты забрал(а):", updatedPrefix: "Обновлено", refresh: "обновить", changeName: "сменить имя",
+    toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
+    toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
+    toastUnclaimed: "Порция снова свободна", toastCantCancel: "Порцию уже забрали — отменить нельзя",
+    toastLoad: "Не удалось загрузить 😕", toastErr: "Ошибка 😕", toastInvalidName: "Некорректное имя",
+    toastEnterName: "Введи имя", toastTooLong: "Слишком длинное имя", toastBadChars: "Имя содержит недопустимые символы",
+    months: ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],
+    days: ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'],
+  }
+};
+let lang = localStorage.getItem('lunch_lang') || 'en';
+const t = (k) => I18N[lang][k] || I18N.en[k] || k;
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  $('langBtn').textContent = lang === 'en' ? 'RU' : 'EN';
+  $('dlgTitle').textContent = t('dlgTitle');
+  $('dlgHint').textContent = t('dlgHint');
+  $('nameInput').placeholder = t('namePlaceholder');
+  $('nameSubmit').textContent = t('continueBtn');
+  $('headTitle').textContent = t('headTitle');
+  $('howTitle').textContent = t('howTitle');
+  $('howBody').textContent = t('howBody');
+  $('freeTitle').textContent = t('freeTitle');
+  $('claimedTitle').textContent = t('claimedTitle');
+  $('freeEmptyTxt').textContent = t('freeEmpty');
+  $('claimedEmptyTxt').textContent = t('claimedEmpty');
+  $('updatedPrefix').textContent = t('updatedPrefix');
+  $('refreshBtn').textContent = t('refresh');
+  $('changeNameBtn').textContent = t('changeName');
+  document.title = t('headTitle') + ' 🍱';
+  if (state) render();
+}
+$('langBtn').addEventListener('click', () => {
+  lang = lang === 'en' ? 'ru' : 'en';
+  localStorage.setItem('lunch_lang', lang);
+  applyLang();
+});
+
 let me = localStorage.getItem('lunch_name') || '';
 let state = null;
-let skipPulse = false; // моя отметка «не обедаю» активна
+let myState = 'idle'; // idle | skipped-free | skipped-claimed
 
 function avatarColor(name) {
   let h = 0;
@@ -288,18 +370,17 @@ function initials(name) {
 }
 function fmtDate(iso) {
   const [y,m,d] = iso.split('-').map(Number);
-  const months = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-  const days = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
   const dt = new Date(y, m-1, d);
-  return `${d} ${months[m-1]}, ${days[dt.getDay()]}`;
+  if (lang === 'ru') return `${d} ${I18N.ru.months[m-1]}, ${I18N.ru.days[dt.getDay()]}`;
+  return `${I18N.en.months[m-1]} ${d}, ${I18N.en.days[dt.getDay()]}`;
 }
 
 function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._h);
-  t._h = setTimeout(() => t.classList.remove('show'), 2200);
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._h);
+  el._h = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
 async function api(path, opts) {
@@ -316,37 +397,39 @@ async function load() {
     state = await api('/api/today');
     render();
   } catch (e) {
-    toast('Не удалось загрузить 😕');
+    toast(t('toastLoad'));
   }
 }
 
 function render() {
   $('dateLabel').textContent = fmtDate(state.date);
-  const mySkip = state.free.includes(me) || state.claimed.some(c => c.name === me);
-  skipPulse = mySkip;
 
-  // главная кнопка
+  // моё состояние
+  const claimedBySomeone = state.claimed.find(c => c.name === me);
+  const mySkipFree = state.free.includes(me);
+  myState = claimedBySomeone ? 'skipped-claimed' : (mySkipFree ? 'skipped-free' : 'idle');
+
   const btn = $('mainBtn');
-  if (mySkip) {
-    btn.className = 'big-btn skipped';
-    btn.innerHTML = `✅ Я отметился: не обедаю <small>нажми, чтобы отменить (если передумал)</small>`;
-  } else {
+  if (myState === 'idle') {
     btn.className = 'big-btn idle';
-    btn.innerHTML = `🚫 Я сегодня не обедаю <small>нажми, если не будешь есть — порция достанется другому</small>`;
+    btn.innerHTML = `${t('mainIdle')} <small>${t('mainIdleSub')}</small>`;
+  } else if (myState === 'skipped-free') {
+    btn.className = 'big-btn skipped';
+    btn.innerHTML = `${t('mainSkipped')} <small>${t('mainSkippedSub')}</small>`;
+  } else {
+    btn.className = 'big-btn claimed';
+    btn.innerHTML = `${t('mainClaimed')} <small>${t('mainClaimedSub')}</small>`;
   }
 
-  // свободные
+  // списки
   const freeList = $('freeList');
   const claimedList = $('claimedList');
   freeList.innerHTML = '';
   claimedList.innerHTML = '';
 
-  if (state.free.length === 0) $('freeEmpty').classList.remove('hidden');
-  else $('freeEmpty').classList.add('hidden');
+  $('freeEmpty').classList.toggle('hidden', state.free.length > 0);
+  $('claimedEmpty').classList.toggle('hidden', state.claimed.length > 0);
   $('freeCount').textContent = state.free.length;
-
-  if (state.claimed.length === 0) $('claimedEmpty').classList.remove('hidden');
-  else $('claimedEmpty').classList.add('hidden');
   $('claimedCount').textContent = state.claimed.length;
 
   const myClaims = state.claimed.filter(c => c.by === me);
@@ -359,9 +442,9 @@ function render() {
       <div class="avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
       <div class="info">
         <div class="name">${escapeHtml(name)}</div>
-        <div class="sub skipped">не обедает сегодня</div>
+        <div class="sub skipped">${t('subSkipped')}</div>
       </div>
-      ${isMine ? '' : `<button class="btn primary" data-claim="${escapeAttr(name)}">Заберу 🍽️</button>`}
+      ${isMine ? '' : `<button class="btn primary" data-claim="${escapeAttr(name)}">${t('claimBtn')}</button>`}
     `;
     freeList.appendChild(div);
   }
@@ -374,28 +457,27 @@ function render() {
       <div class="avatar" style="background:${avatarColor(c.name)}">${initials(c.name)}</div>
       <div class="info">
         <div class="name">${escapeHtml(c.name)}</div>
-        <div class="sub claimed-by">забрал(а): ${escapeHtml(c.by)}</div>
+        <div class="sub claimed-by">${t('subClaimed')} ${escapeHtml(c.by)}</div>
       </div>
-      ${mine ? `<button class="btn ghost small" data-unclaim="${escapeAttr(c.name)}">Вернуть</button>` : ''}
+      ${mine ? `<button class="btn ghost small" data-unclaim="${escapeAttr(c.name)}">${t('returnBtn')}</button>` : ''}
     `;
     claimedList.appendChild(div);
   }
 
-  // блок «я забрал»
-  $('banner').classList.toggle('hidden', myClaims.length > 0);
+  // баннер «я забрал»
   const myClaimBanner = document.querySelector('.my-claim');
   if (myClaims.length > 0 && !myClaimBanner) {
     const banner = document.createElement('div');
     banner.className = 'my-claim';
     banner.id = 'myClaimBanner';
-    banner.innerHTML = `🍽️ Ты забрал(а): <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
+    banner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
     $('banner').insertAdjacentElement('afterend', banner);
   } else if (myClaimBanner) {
     if (myClaims.length === 0) myClaimBanner.remove();
-    else myClaimBanner.innerHTML = `🍽️ Ты забрал(а): <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
+    else myClaimBanner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
   }
 
-  $('updatedAt').textContent = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  $('updatedAt').textContent = new Date().toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function escapeHtml(s) {
@@ -407,17 +489,21 @@ function escapeAttr(s) { return escapeHtml(s); }
 
 $('mainBtn').addEventListener('click', async () => {
   if (!me) return showName();
+  if (myState === 'skipped-claimed') {
+    toast(t('toastCantCancel'));
+    return;
+  }
   try {
-    if (skipPulse) {
+    if (myState === 'skipped-free') {
       await api('/api/unship', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: me }) });
-      toast('Отметка снята — ты снова обедаешь');
+      toast(t('toastUnmarked'));
     } else {
       await api('/api/skip', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: me }) });
-      toast('Отмечено! Твоя порция теперь свободна');
+      toast(t('toastMarked'));
     }
     load();
   } catch (e) {
-    toast(e.message === 'invalid_name' ? 'Некорректное имя' : 'Ошибка 😕');
+    toast(e.message === 'invalid_name' ? t('toastInvalidName') : e.message === 'already_claimed' ? t('toastCantCancel') : t('toastErr'));
   }
 });
 
@@ -427,10 +513,10 @@ document.addEventListener('click', async (ev) => {
     const from = claimBtn.dataset.claim;
     try {
       await api('/api/claim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ from, by: me }) });
-      toast(`Ты забрал порцию ${from} 🎉`);
+      toast(`${t('toastClaimed')} ${from} 🎉`);
       load();
     } catch (e) {
-      toast(e.message === 'already_claimed' ? 'Уже разобрали!' : e.message === 'self_claim' ? 'Свою порцию забирать не надо 😄' : 'Ошибка 😕');
+      toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : t('toastErr'));
     }
     return;
   }
@@ -439,9 +525,9 @@ document.addEventListener('click', async (ev) => {
     const from = unclaimBtn.dataset.unclaim;
     try {
       await api('/api/unclaim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ from, by: me }) });
-      toast('Порция снова свободна');
+      toast(t('toastUnclaimed'));
       load();
-    } catch (e) { toast('Ошибка 😕'); }
+    } catch (e) { toast(t('toastErr')); }
     return;
   }
 });
@@ -454,7 +540,6 @@ $('changeNameBtn').addEventListener('click', () => showName(true));
 function showName(force) {
   $('nameOverlay').classList.remove('hidden');
   $('nameInput').value = me;
-  // подсказки из известных людей
   const chips = $('chips');
   chips.innerHTML = '';
   const known = (state?.people || []).filter(n => n !== me).slice(0, 8);
@@ -465,7 +550,7 @@ function showName(force) {
     c.addEventListener('click', () => { me = n; saveMe(); hideName(); load(); });
     chips.appendChild(c);
   });
-  if (!known.length) chips.classList.add('hidden'); else chips.classList.remove('hidden');
+  chips.classList.toggle('hidden', !known.length);
   setTimeout(() => $('nameInput').focus(), 50);
 }
 function hideName() { $('nameOverlay').classList.add('hidden'); }
@@ -473,9 +558,9 @@ function saveMe() { localStorage.setItem('lunch_name', me); }
 
 $('nameSubmit').addEventListener('click', () => {
   const v = $('nameInput').value.trim().replace(/\s+/g, ' ');
-  if (!v) return toast('Введи имя');
-  if (v.length > 40) return toast('Слишком длинное имя');
-  if (!/^[\p{L}\p{N} \-'.]+$/u.test(v)) return toast('Имя содержит недопустимые символы');
+  if (!v) return toast(t('toastEnterName'));
+  if (v.length > 40) return toast(t('toastTooLong'));
+  if (!/^[\p{L}\p{N} \-'.]+$/u.test(v)) return toast(t('toastBadChars'));
   me = v;
   saveMe();
   hideName();
@@ -485,6 +570,7 @@ $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('na
 
 // === старт ===
 (async () => {
+  applyLang();
   await load();
   if (!me) showName();
   setInterval(load, 15000); // автообновление
