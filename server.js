@@ -87,7 +87,17 @@ db.prepare(`DELETE FROM people WHERE name NOT IN (${ROSTER.map(() => '?').join('
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// Статика: HTML/sw/manifest НЕ кэшировать (иначе PWA на главном экране не увидит обновления),
+// остальные ассеты (icon и т.п.) — с кэшем.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (/\.(html|js|json)$/.test(filePath) && !/\.(png|svg|ico)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
+  },
+}));
 
 function todayStr() {
   const now = new Date();

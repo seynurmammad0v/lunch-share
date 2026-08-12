@@ -41,13 +41,6 @@
   .logo { font-size: 42px; }
   h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
   .date { color: var(--muted); font-size: 14px; margin-top: 4px; }
-  .lang-btn {
-    position: absolute; top: 0; right: 0;
-    background: var(--card); border: 1.5px solid #e2ddd4;
-    border-radius: 999px; padding: 6px 12px;
-    font-size: 13px; font-weight: 700; cursor: pointer; color: var(--ink);
-  }
-  .lang-btn:active { background: #f0ede7; }
 
   .banner {
     background: linear-gradient(135deg, #fff7ed, #ffedd5);
@@ -60,34 +53,6 @@
     color: #7c3f12;
   }
   .banner b { color: var(--accent-dark); }
-
-  .ios-banner {
-    background: linear-gradient(135deg, #eef6ff, #e0efff);
-    border: 1px solid #b8d9f5;
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    margin-bottom: 16px;
-    font-size: 14.5px;
-    line-height: 1.45;
-    color: #1c4e7c;
-    text-align: center;
-  }
-  .ios-banner b { color: #1c4e7c; }
-  .ios-guide {
-    display: block;
-    width: 140px;
-    margin: 0 auto 10px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(28,78,124,.15);
-  }
-  .banner-btn {
-    display: block;
-    margin: 12px auto 0;
-    background: #2f6fed;
-    border-radius: 999px;
-    padding: 12px 22px;
-  }
-  .banner-btn:active { background: #2459c4; }
 
   .card {
     background: var(--card);
@@ -260,11 +225,16 @@
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
-    margin-bottom: 8px;
   }
   .notif-btn:active { background: var(--accent-dark); }
   .notif-btn.on { background: var(--green); }
   .notif-btn:disabled { opacity: .6; cursor: default; }
+
+  .notif-top {
+    text-align: center;
+    margin: -6px 0 16px;
+  }
+  .notif-top .notif-btn { padding: 12px 24px; font-size: 15px; box-shadow: var(--shadow); }
   footer {
     text-align: center;
     font-size: 12px;
@@ -304,17 +274,13 @@
 </div>
 
 <header>
-  <button class="lang-btn" id="langBtn">RU</button>
   <div class="logo">🍱</div>
   <h1 id="headTitle">Who's not eating</h1>
   <div class="date" id="dateLabel"></div>
 </header>
 
-<div class="ios-banner hidden" id="notifBanner">
-  <img src="/ios-guide.svg" alt="Share button at the bottom of Safari" class="ios-guide hidden" id="iosGuide">
-  <b id="notifBannerTitle">🔔 Turn on notifications</b>
-  <span id="notifBannerBody">get notified when someone takes your meal — or when it's free again</span>
-  <button class="btn primary banner-btn" id="bannerNotifBtn">🔔 Enable notifications</button>
+<div class="notif-top hidden" id="notifTop">
+  <button id="notifBtn" class="notif-btn">🔔 Enable notifications</button>
 </div>
 
 <div class="banner" id="banner">
@@ -341,7 +307,6 @@
 </div>
 
 <footer>
-  <div><button id="notifBtn" class="notif-btn">🔔 Enable notifications</button></div>
   <span id="updatedPrefix">Updated</span> <span id="updatedAt">—</span> · <button id="refreshBtn" data-i18n="refresh">refresh</button> · <button id="changeNameBtn" data-i18n="changeName">change name</button>
 </footer>
 
@@ -382,44 +347,13 @@ const I18N = {
     toastEnterName: "Enter your name", toastTooLong: "Name is too long", toastBadChars: "Name has invalid characters",
     months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
-  },
-  ru: {
-    dlgTitle: "Кто ты?", dlgHint: "Выбери своё имя из списка — так коллеги увидят, что ты сегодня не обедаешь",
-    namePlaceholder: "Имя", continueBtn: "Продолжить", headTitle: "Кто не обедает",
-    howTitle: "Как работает:", howBody: "каждый день отмечайся, если не будешь обедать в офисе — твою порцию сможет забрать любой, кто голоден. Порция не пропадёт 😉",
-    mainIdle: "🚫 Я сегодня не обедаю", mainIdleSub: "нажми, если не будешь есть — порция достанется другому",
-    mainSkipped: "✅ Я отметился: не обедаю", mainSkippedSub: "нажми, чтобы отменить (если передумал)",
-    mainClaimed: "🍽️ Твою порцию забрали", mainClaimedSub: "отменить нельзя — попроси того, кто забрал, вернуть",
-    freeTitle: "🆓 Свободные порции", claimedTitle: "🤝 Порции разобрали",
-    freeEmpty: "Свободных порций нет — все обедают", claimedEmpty: "Пока никто ничего не забрал",
-    subSkipped: "не обедает сегодня", subClaimed: "забрал(а):",
-    claimBtn: "Заберу 🍽️", returnBtn: "Вернуть",
-    myClaim: "Ты забрал(а):", updatedPrefix: "Обновлено", refresh: "обновить", changeName: "сменить имя",
-    notifBtn: "🔔 Включить уведомления", notifOn: "🔔 Уведомления включены",
-    notifDenied: "Уведомления заблокированы в браузере — включи в настройках",
-    notifUnsupported: "Уведомления не поддерживаются на этом устройстве",
-    notifOpenBrowser: "📲 Открой в Safari/Chrome — внутри приложений (Telegram и др.) уведомления не работают",
-    notifIos: "📱 iPhone: Share → Add to Home Screen, затем открой Обед с главного экрана",
-    notifIosOld: "📱 iPhone: нужен iOS 16.4+ — обнови iPhone, затем Share → Add to Home Screen",
-    iosTitle: "📱 Включи уведомления на iPhone:", iosBody: "нажми Share → Add to Home Screen, затем открой Обед с главного экрана — уведомления включатся сами.",
-    bannerTitle: "Включи уведомления", bannerBody: "узнавай, когда кто-то заберёт твою порцию — или когда она снова свободна",
-    toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
-    toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
-    toastUnclaimed: "Порция снова свободна", toastCantCancel: "Порцию уже забрали — отменить нельзя",
-    toastLimit: "Лимит дня: можно забрать не больше 2 порций", limitNote: "Лимит дня достигнут: ты забрал(а) 2 порции",
-    toastNotifOff: "Уведомления выключены",
-    toastLoad: "Не удалось загрузить 😕", toastErr: "Ошибка 😕", toastInvalidName: "Некорректное имя",
-    toastEnterName: "Введи имя", toastTooLong: "Слишком длинное имя", toastBadChars: "Имя содержит недопустимые символы",
-    months: ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],
-    days: ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'],
   }
 };
-let lang = localStorage.getItem('lunch_lang') || 'en';
-const t = (k) => I18N[lang][k] || I18N.en[k] || k;
+const lang = 'en'; // только английский
+const t = (k) => I18N.en[k] || k;
 
 function applyLang() {
   document.documentElement.lang = lang;
-  $('langBtn').textContent = lang === 'en' ? 'RU' : 'EN';
   $('dlgTitle').textContent = t('dlgTitle');
   $('dlgHint').textContent = t('dlgHint');
   $('nameInput').placeholder = t('namePlaceholder');
@@ -435,15 +369,9 @@ function applyLang() {
   $('refreshBtn').textContent = t('refresh');
   $('changeNameBtn').textContent = t('changeName');
   renderNotifBtn();
-  renderNotifBanner();
   document.title = t('headTitle') + ' 🍱';
   if (state) render();
 }
-$('langBtn').addEventListener('click', () => {
-  lang = lang === 'en' ? 'ru' : 'en';
-  localStorage.setItem('lunch_lang', lang);
-  applyLang();
-});
 
 // ===== идентификация: device (телефон) + имя =====
 let device = localStorage.getItem('lunch_device');
@@ -467,7 +395,6 @@ function initials(name) {
 function fmtDate(iso) {
   const [y,m,d] = iso.split('-').map(Number);
   const dt = new Date(y, m-1, d);
-  if (lang === 'ru') return `${d} ${I18N.ru.months[m-1]}, ${I18N.ru.days[dt.getDay()]}`;
   return `${I18N.en.months[m-1]} ${d}, ${I18N.en.days[dt.getDay()]}`;
 }
 
@@ -603,7 +530,7 @@ function render() {
     else limitBanner.textContent = `🚫 ${t('limitNote')}`;
   }
 
-  $('updatedAt').textContent = new Date().toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  $('updatedAt').textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
 
 function escapeHtml(s) {
@@ -687,52 +614,25 @@ let pushAsked = localStorage.getItem('lunch_push_asked') === '1';
 
 function renderNotifBtn() {
   const btn = $('notifBtn');
+  const top = $('notifTop');
   const supported = 'serviceWorker' in navigator && 'PushManager' in window;
   if (!supported) {
     btn.disabled = false;
     btn.classList.remove('on');
     if (isIOS()) {
-      // iPhone Safari без PushManager = iOS < 16.4 (Apple добавила web push только в 16.4)
       btn.textContent = t('notifIosOld');
     } else if (isInAppBrowser()) {
       btn.textContent = t('notifOpenBrowser'); // внутри Telegram и т.п. — подсказка, а не «не поддерживается»
     } else {
       btn.textContent = t('notifUnsupported');
     }
+    top.classList.remove('hidden');
     return;
   }
   btn.disabled = false;
   btn.textContent = pushSubscribed ? t('notifOn') : t('notifBtn');
   btn.classList.toggle('on', pushSubscribed);
-}
-
-// Баннер уведомлений: виден всем, кто ещё не включил пуши.
-// На iPhone — с картинкой «где Share» и инструкцией Add to Home Screen.
-function renderNotifBanner() {
-  const banner = $('notifBanner');
-  const supported = 'serviceWorker' in navigator && 'PushManager' in window;
-  if (pushSubscribed) { banner.classList.add('hidden'); return; }
-
-  $('iosGuide').classList.toggle('hidden', !(isIOS() && !isStandalone()));
-
-  if (isIOS() && !isStandalone()) {
-    $('notifBannerTitle').textContent = t('iosTitle');
-    $('notifBannerBody').textContent = t('iosBody');
-    $('bannerNotifBtn').textContent = t('notifIos');
-  } else if (isInAppBrowser() && !supported) {
-    $('notifBannerTitle').textContent = '📲';
-    $('notifBannerBody').textContent = t('notifOpenBrowser');
-    $('bannerNotifBtn').textContent = t('notifOpenBrowser');
-  } else if (!supported) {
-    $('notifBannerTitle').textContent = '🔔';
-    $('notifBannerBody').textContent = t('notifUnsupported');
-    $('bannerNotifBtn').textContent = t('notifUnsupported');
-  } else {
-    $('notifBannerTitle').textContent = '🔔 ' + t('bannerTitle');
-    $('notifBannerBody').textContent = t('bannerBody');
-    $('bannerNotifBtn').textContent = t('notifBtn');
-  }
-  banner.classList.remove('hidden');
+  top.classList.toggle('hidden', pushSubscribed); // кнопка наверху: скрыта, когда уведомления включены
 }
 
 async function subscribePush(silent) {
@@ -752,7 +652,6 @@ async function subscribePush(silent) {
     pushSubscribed = true;
     localStorage.setItem('lunch_push', '1');
     renderNotifBtn();
-    renderNotifBanner();
     if (!silent) toast('🔔 ' + t('notifOn'));
     return true;
   } catch (e) {
@@ -763,9 +662,9 @@ async function subscribePush(silent) {
 // Автовключение: вызывается после ввода имени и при старте.
 // На iPhone нужно «Добавить на главный экран» — показываем подсказку, не спрашиваем.
 async function autoEnablePush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if (pushSubscribed) { renderNotifBtn(); renderNotifBanner(); return; }
-  if (isIOS() && !isStandalone()) { renderNotifBtn(); renderNotifBanner(); return; }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) { renderNotifBtn(); return; }
+  if (pushSubscribed) { renderNotifBtn(); return; }
+  if (isIOS() && !isStandalone()) { renderNotifBtn(); return; }
   if (Notification.permission === 'granted') {
     await subscribePush(true);
     return;
@@ -774,11 +673,10 @@ async function autoEnablePush() {
     pushAsked = true;
     localStorage.setItem('lunch_push_asked', '1');
     const ok = await subscribePush(true);
-    if (!ok) { renderNotifBtn(); renderNotifBanner(); }
+    if (!ok) { renderNotifBtn(); }
     return;
   }
   renderNotifBtn();
-  renderNotifBanner();
 }
 
 $('notifBtn').addEventListener('click', async () => {
@@ -786,7 +684,6 @@ $('notifBtn').addEventListener('click', async () => {
     pushSubscribed = false;
     localStorage.setItem('lunch_push', '0');
     renderNotifBtn();
-    renderNotifBanner();
     toast(t('toastNotifOff'));
     fetch('/api/unsubscribe', {
       method: 'POST',
@@ -803,16 +700,12 @@ $('notifBtn').addEventListener('click', async () => {
     return;
   }
   if (isIOS() && !isStandalone()) {
-    renderNotifBanner();
     toast(t('iosBody'));
     return;
   }
   const ok = await subscribePush(false);
   if (!ok) toast(t('notifDenied'));
 });
-
-// кнопка в баннере = та же логика, что и кнопка в футере
-$('bannerNotifBtn').addEventListener('click', () => $('notifBtn').click());
 
 // === ввод имени ===
 
