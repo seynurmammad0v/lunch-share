@@ -147,7 +147,6 @@
   }
   .empty .e { font-size: 34px; display: block; margin-bottom: 8px; }
 
-  /* Забрал сам */
   .my-claim {
     background: var(--green-bg);
     border: 1.5px solid #bfe8d2;
@@ -155,6 +154,18 @@
     padding: 10px 12px;
     font-size: 14px;
     color: var(--green);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  /* Лимит дня достигнут */
+  .limit-note {
+    background: var(--amber-bg);
+    border: 1.5px solid #f0d9a8;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--amber);
     font-weight: 700;
     margin-bottom: 12px;
   }
@@ -302,6 +313,7 @@ const I18N = {
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
     toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
     toastUnclaimed: "Meal is available again", toastCantCancel: "Meal already claimed — ask them to return it",
+    toastLimit: "Daily limit reached — you can take up to 2 meals", limitNote: "Daily limit reached: you've taken your 2 meals",
     toastLoad: "Couldn't load 😕", toastErr: "Something went wrong 😕", toastInvalidName: "Invalid name",
     toastEnterName: "Enter your name", toastTooLong: "Name is too long", toastBadChars: "Name has invalid characters",
     months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
@@ -322,6 +334,7 @@ const I18N = {
     toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
     toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
     toastUnclaimed: "Порция снова свободна", toastCantCancel: "Порцию уже забрали — отменить нельзя",
+    toastLimit: "Лимит дня: можно забрать не больше 2 порций", limitNote: "Лимит дня достигнут: ты забрал(а) 2 порции",
     toastLoad: "Не удалось загрузить 😕", toastErr: "Ошибка 😕", toastInvalidName: "Некорректное имя",
     toastEnterName: "Введи имя", toastTooLong: "Слишком длинное имя", toastBadChars: "Имя содержит недопустимые символы",
     months: ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'],
@@ -432,6 +445,8 @@ function render() {
   // моё состояние — сервер определяет по device, имя менять можно свободно
   const mySkip = state.me && state.me.skip ? state.me.skip : null; // {name, claimed_by} | null
   const myClaims = state.me ? (state.me.claims || []) : [];
+  const claimLimit = state.claimLimit || 2;
+  const limitReached = myClaims.length >= claimLimit;
   myState = mySkip
     ? (mySkip.claimed_by ? 'skipped-claimed' : 'skipped-free')
     : 'idle';
@@ -469,7 +484,7 @@ function render() {
         <div class="name">${escapeHtml(name)}</div>
         <div class="sub skipped">${t('subSkipped')}</div>
       </div>
-      ${isMine ? '' : `<button class="btn primary" data-claim="${escapeAttr(name)}">${t('claimBtn')}</button>`}
+      ${isMine || limitReached ? '' : `<button class="btn primary" data-claim="${escapeAttr(name)}">${t('claimBtn')}</button>`}
     `;
     freeList.appendChild(div);
   }
@@ -489,7 +504,7 @@ function render() {
     claimedList.appendChild(div);
   }
 
-  // баннер «я забрал»
+  // баннер «я забрал» и «лимит достигнут»
   const myClaimBanner = document.querySelector('.my-claim');
   if (myClaims.length > 0 && !myClaimBanner) {
     const banner = document.createElement('div');
@@ -500,6 +515,17 @@ function render() {
   } else if (myClaimBanner) {
     if (myClaims.length === 0) myClaimBanner.remove();
     else myClaimBanner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
+  }
+  const limitBanner = document.querySelector('.limit-note');
+  if (limitReached && !limitBanner) {
+    const banner = document.createElement('div');
+    banner.className = 'limit-note';
+    banner.id = 'limitNote';
+    banner.textContent = `🚫 ${t('limitNote')}`;
+    $('banner').insertAdjacentElement('afterend', banner);
+  } else if (limitBanner) {
+    if (!limitReached) limitBanner.remove();
+    else limitBanner.textContent = `🚫 ${t('limitNote')}`;
   }
 
   $('updatedAt').textContent = new Date().toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -541,7 +567,7 @@ document.addEventListener('click', async (ev) => {
       toast(`${t('toastClaimed')} ${from} 🎉`);
       load();
     } catch (e) {
-      toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : e.message === 'no_skip' ? t('toastClaimedErr') : t('toastErr'));
+      toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : e.message === 'no_skip' ? t('toastClaimedErr') : e.message === 'limit_reached' ? t('toastLimit') : t('toastErr'));
     }
     return;
   }

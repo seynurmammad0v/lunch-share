@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lunch.db');
 const TIMEZONE = process.env.TZ || 'Asia/Baku';
+const MAX_CLAIMS_PER_DAY = 2; // лимит: сколько порций можно забрать в день
 
 // Штат компании — для автокомплита имени (только имя + фамилия)
 // Два «Farid Mammadov» различаются по роли
@@ -119,6 +120,7 @@ function getTodayState(device) {
     claimed: skips.filter((s) => s.claimed_by_name).map((s) => ({ name: s.name, by: s.claimed_by_name })),
     people: people.map((p) => p.name),
     roster: ROSTER,
+    claimLimit: MAX_CLAIMS_PER_DAY,
     me,
   };
 }
@@ -177,6 +179,10 @@ app.post('/api/claim', (req, res) => {
   }
   if (owner.device_id === device) return res.status(400).json({ error: 'self_claim' });
   if (owner.claimed_by_name) return res.status(409).json({ error: 'already_claimed' });
+
+  // лимит: не больше MAX_CLAIMS_PER_DAY порций в день на человека
+  const cnt = db.prepare(`SELECT COUNT(*) AS c FROM skips WHERE date = ? AND claimed_by_device = ?`).get(date, device).c;
+  if (cnt >= MAX_CLAIMS_PER_DAY) return res.status(409).json({ error: 'limit_reached' });
 
   syncName(device, name, date);
   const r = db.prepare(`UPDATE skips SET claimed_by_device = ?, claimed_by_name = ?
