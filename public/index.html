@@ -615,23 +615,32 @@ function renderNotifBtn() {
   const btn = $('notifBtn');
   const top = $('notifTop');
   const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+  btn.disabled = false;
+  top.classList.remove('hidden'); // кнопка видна всегда: включить или выключить
+
+  if (pushSubscribed) {
+    btn.classList.add('on');
+    btn.textContent = t('notifOn');
+    return;
+  }
+  btn.classList.remove('on');
+
   if (!supported) {
-    btn.disabled = false;
-    btn.classList.remove('on');
     if (isIOS()) {
-      btn.textContent = t('notifIos');
+      btn.textContent = t('notifIos'); // iPhone: нужен Home Screen
     } else if (isInAppBrowser()) {
-      btn.textContent = t('notifOpenBrowser'); // внутри Telegram и т.п. — подсказка, а не «не поддерживается»
+      btn.textContent = t('notifOpenBrowser'); // внутри Telegram и т.п.
     } else {
       btn.textContent = t('notifUnsupported');
     }
-    top.classList.remove('hidden');
     return;
   }
-  btn.disabled = false;
-  btn.textContent = pushSubscribed ? t('notifOn') : t('notifBtn');
-  btn.classList.toggle('on', pushSubscribed);
-  top.classList.toggle('hidden', pushSubscribed); // кнопка наверху: скрыта, когда уведомления включены
+  if (isIOS() && !isStandalone()) {
+    btn.textContent = t('notifIos'); // iPhone: Share → Add to Home Screen
+    return;
+  }
+  // Android и остальные: обычное включение (браузер сам спросит разрешение)
+  btn.textContent = t('notifBtn');
 }
 
 async function subscribePush(silent) {
