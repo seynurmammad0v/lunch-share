@@ -80,6 +80,14 @@
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(28,78,124,.15);
   }
+  .banner-btn {
+    display: block;
+    margin: 12px auto 0;
+    background: #2f6fed;
+    border-radius: 999px;
+    padding: 12px 22px;
+  }
+  .banner-btn:active { background: #2459c4; }
 
   .card {
     background: var(--card);
@@ -302,14 +310,15 @@
   <div class="date" id="dateLabel"></div>
 </header>
 
-<div class="banner" id="banner">
-  <b id="howTitle">How it works:</b> <span id="howBody">mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉</span>
+<div class="ios-banner hidden" id="notifBanner">
+  <img src="/ios-guide.svg" alt="Share button at the bottom of Safari" class="ios-guide hidden" id="iosGuide">
+  <b id="notifBannerTitle">🔔 Turn on notifications</b>
+  <span id="notifBannerBody">get notified when someone takes your meal — or when it's free again</span>
+  <button class="btn primary banner-btn" id="bannerNotifBtn">🔔 Enable notifications</button>
 </div>
 
-<div class="ios-banner hidden" id="iosBanner">
-  <img src="/ios-guide.svg" alt="Share button at the bottom of Safari" class="ios-guide">
-  <b id="iosTitle">📱 Enable notifications on iPhone:</b>
-  <span id="iosBody">tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.</span>
+<div class="banner" id="banner">
+  <b id="howTitle">How it works:</b> <span id="howBody">mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉</span>
 </div>
 
 <div class="card">
@@ -363,6 +372,7 @@ const I18N = {
     notifIos: "📱 iPhone: Share → Add to Home Screen, then open Lunch from home screen",
     notifIosOld: "📱 iPhone: needs iOS 16.4+ — update your iPhone, then Share → Add to Home Screen",
     iosTitle: "📱 Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
+    bannerTitle: "Turn on notifications", bannerBody: "get notified when someone takes your meal — or when it's free again",
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
     toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
     toastUnclaimed: "Meal is available again", toastCantCancel: "Meal already claimed — ask them to return it",
@@ -392,6 +402,7 @@ const I18N = {
     notifIos: "📱 iPhone: Share → Add to Home Screen, затем открой Обед с главного экрана",
     notifIosOld: "📱 iPhone: нужен iOS 16.4+ — обнови iPhone, затем Share → Add to Home Screen",
     iosTitle: "📱 Включи уведомления на iPhone:", iosBody: "нажми Share → Add to Home Screen, затем открой Обед с главного экрана — уведомления включатся сами.",
+    bannerTitle: "Включи уведомления", bannerBody: "узнавай, когда кто-то заберёт твою порцию — или когда она снова свободна",
     toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
     toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
     toastUnclaimed: "Порция снова свободна", toastCantCancel: "Порцию уже забрали — отменить нельзя",
@@ -424,6 +435,7 @@ function applyLang() {
   $('refreshBtn').textContent = t('refresh');
   $('changeNameBtn').textContent = t('changeName');
   renderNotifBtn();
+  renderNotifBanner();
   document.title = t('headTitle') + ' 🍱';
   if (state) render();
 }
@@ -694,9 +706,33 @@ function renderNotifBtn() {
   btn.classList.toggle('on', pushSubscribed);
 }
 
-function renderIosBanner() {
-  const needIosHint = isIOS() && !isStandalone() && !pushSubscribed;
-  $('iosBanner').classList.toggle('hidden', !needIosHint);
+// Баннер уведомлений: виден всем, кто ещё не включил пуши.
+// На iPhone — с картинкой «где Share» и инструкцией Add to Home Screen.
+function renderNotifBanner() {
+  const banner = $('notifBanner');
+  const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+  if (pushSubscribed) { banner.classList.add('hidden'); return; }
+
+  $('iosGuide').classList.toggle('hidden', !(isIOS() && !isStandalone()));
+
+  if (isIOS() && !isStandalone()) {
+    $('notifBannerTitle').textContent = t('iosTitle');
+    $('notifBannerBody').textContent = t('iosBody');
+    $('bannerNotifBtn').textContent = t('notifIos');
+  } else if (isInAppBrowser() && !supported) {
+    $('notifBannerTitle').textContent = '📲';
+    $('notifBannerBody').textContent = t('notifOpenBrowser');
+    $('bannerNotifBtn').textContent = t('notifOpenBrowser');
+  } else if (!supported) {
+    $('notifBannerTitle').textContent = '🔔';
+    $('notifBannerBody').textContent = t('notifUnsupported');
+    $('bannerNotifBtn').textContent = t('notifUnsupported');
+  } else {
+    $('notifBannerTitle').textContent = '🔔 ' + t('bannerTitle');
+    $('notifBannerBody').textContent = t('bannerBody');
+    $('bannerNotifBtn').textContent = t('notifBtn');
+  }
+  banner.classList.remove('hidden');
 }
 
 async function subscribePush(silent) {
@@ -716,7 +752,7 @@ async function subscribePush(silent) {
     pushSubscribed = true;
     localStorage.setItem('lunch_push', '1');
     renderNotifBtn();
-    renderIosBanner();
+    renderNotifBanner();
     if (!silent) toast('🔔 ' + t('notifOn'));
     return true;
   } catch (e) {
@@ -728,8 +764,8 @@ async function subscribePush(silent) {
 // На iPhone нужно «Добавить на главный экран» — показываем подсказку, не спрашиваем.
 async function autoEnablePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if (pushSubscribed) { renderNotifBtn(); renderIosBanner(); return; }
-  if (isIOS() && !isStandalone()) { renderNotifBtn(); renderIosBanner(); return; }
+  if (pushSubscribed) { renderNotifBtn(); renderNotifBanner(); return; }
+  if (isIOS() && !isStandalone()) { renderNotifBtn(); renderNotifBanner(); return; }
   if (Notification.permission === 'granted') {
     await subscribePush(true);
     return;
@@ -738,11 +774,11 @@ async function autoEnablePush() {
     pushAsked = true;
     localStorage.setItem('lunch_push_asked', '1');
     const ok = await subscribePush(true);
-    if (!ok) { renderNotifBtn(); renderIosBanner(); }
+    if (!ok) { renderNotifBtn(); renderNotifBanner(); }
     return;
   }
   renderNotifBtn();
-  renderIosBanner();
+  renderNotifBanner();
 }
 
 $('notifBtn').addEventListener('click', async () => {
@@ -750,6 +786,7 @@ $('notifBtn').addEventListener('click', async () => {
     pushSubscribed = false;
     localStorage.setItem('lunch_push', '0');
     renderNotifBtn();
+    renderNotifBanner();
     toast(t('toastNotifOff'));
     fetch('/api/unsubscribe', {
       method: 'POST',
@@ -766,13 +803,16 @@ $('notifBtn').addEventListener('click', async () => {
     return;
   }
   if (isIOS() && !isStandalone()) {
-    renderIosBanner();
+    renderNotifBanner();
     toast(t('iosBody'));
     return;
   }
   const ok = await subscribePush(false);
   if (!ok) toast(t('notifDenied'));
 });
+
+// кнопка в баннере = та же логика, что и кнопка в футере
+$('bannerNotifBtn').addEventListener('click', () => $('notifBtn').click());
 
 // === ввод имени ===
 
