@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🍱 Lunch — who's not eating</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍱</text></svg>">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e8562a">
 <style>
   :root {
     --bg: #f6f4ef;
@@ -55,6 +60,18 @@
     color: #7c3f12;
   }
   .banner b { color: var(--accent-dark); }
+
+  .ios-banner {
+    background: linear-gradient(135deg, #eef6ff, #e0efff);
+    border: 1px solid #b8d9f5;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    color: #1c4e7c;
+  }
+  .ios-banner b { color: #1c4e7c; }
 
   .card {
     background: var(--card);
@@ -281,6 +298,11 @@
   <b id="howTitle">How it works:</b> <span id="howBody">mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉</span>
 </div>
 
+<div class="ios-banner hidden" id="iosBanner">
+  <b id="iosTitle">📱 Enable notifications on iPhone:</b>
+  <span id="iosBody">tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.</span>
+</div>
+
 <div class="card">
   <button class="big-btn idle" id="mainBtn">
     🚫 I'm not eating today
@@ -328,6 +350,7 @@ const I18N = {
     notifBtn: "🔔 Enable notifications", notifOn: "🔔 Notifications on",
     notifDenied: "Notifications blocked in browser — enable in settings",
     notifUnsupported: "Notifications not supported on this device",
+    iosTitle: "📱 Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
     toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
     toastUnclaimed: "Meal is available again", toastCantCancel: "Meal already claimed — ask them to return it",
@@ -353,6 +376,7 @@ const I18N = {
     notifBtn: "🔔 Включить уведомления", notifOn: "🔔 Уведомления включены",
     notifDenied: "Уведомления заблокированы в браузере — включи в настройках",
     notifUnsupported: "Уведомления не поддерживаются на этом устройстве",
+    iosTitle: "📱 Включи уведомления на iPhone:", iosBody: "нажми Share → Add to Home Screen, затем открой Обед с главного экрана — уведомления включатся сами.",
     toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
     toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
     toastUnclaimed: "Порция снова свободна", toastCantCancel: "Порцию уже забрали — отменить нельзя",
@@ -610,7 +634,7 @@ document.addEventListener('click', async (ev) => {
 $('refreshBtn').addEventListener('click', load);
 $('changeNameBtn').addEventListener('click', () => showName(true));
 
-// === Web Push уведомления ===
+// === Web Push уведомления (автоматические) ===
 
 function urlBase64ToUint8Array(base64) {
   const padding = '='.repeat((4 - base64.length % 4) % 4);
@@ -619,7 +643,16 @@ function urlBase64ToUint8Array(base64) {
   return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
 }
 
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
+}
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+
 let pushSubscribed = localStorage.getItem('lunch_push') === '1';
+let pushAsked = localStorage.getItem('lunch_push_asked') === '1';
 
 function renderNotifBtn() {
   const btn = $('notifBtn');
@@ -634,11 +667,13 @@ function renderNotifBtn() {
   btn.classList.toggle('on', pushSubscribed);
 }
 
-async function subscribePush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    toast(t('notifUnsupported'));
-    return;
-  }
+function renderIosBanner() {
+  const needIosHint = isIOS() && !isStandalone() && !pushSubscribed;
+  $('iosBanner').classList.toggle('hidden', !needIosHint);
+}
+
+async function subscribePush(silent) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
     const keyRes = await fetch('/api/vapid-public').then(r => r.json());
@@ -654,15 +689,37 @@ async function subscribePush() {
     pushSubscribed = true;
     localStorage.setItem('lunch_push', '1');
     renderNotifBtn();
-    toast(pushSubscribed ? '🔔 ' + t('notifOn') : '');
+    renderIosBanner();
+    if (!silent) toast('🔔 ' + t('notifOn'));
+    return true;
   } catch (e) {
-    toast(t('notifDenied'));
+    return false;
   }
 }
 
-$('notifBtn').addEventListener('click', () => {
+// Автовключение: вызывается после ввода имени и при старте.
+// На iPhone нужно «Добавить на главный экран» — показываем подсказку, не спрашиваем.
+async function autoEnablePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (pushSubscribed) { renderNotifBtn(); renderIosBanner(); return; }
+  if (isIOS() && !isStandalone()) { renderNotifBtn(); renderIosBanner(); return; }
+  if (Notification.permission === 'granted') {
+    await subscribePush(true);
+    return;
+  }
+  if (Notification.permission === 'default' && !pushAsked) {
+    pushAsked = true;
+    localStorage.setItem('lunch_push_asked', '1');
+    const ok = await subscribePush(true);
+    if (!ok) { renderNotifBtn(); renderIosBanner(); }
+    return;
+  }
+  renderNotifBtn();
+  renderIosBanner();
+}
+
+$('notifBtn').addEventListener('click', async () => {
   if (pushSubscribed) {
-    // выключить: отписываемся на клиенте и сервере
     pushSubscribed = false;
     localStorage.setItem('lunch_push', '0');
     renderNotifBtn();
@@ -674,7 +731,13 @@ $('notifBtn').addEventListener('click', () => {
     }).catch(() => {});
     return;
   }
-  subscribePush();
+  if (isIOS() && !isStandalone()) {
+    renderIosBanner();
+    toast(t('iosBody'));
+    return;
+  }
+  const ok = await subscribePush(false);
+  if (!ok) toast(t('notifDenied'));
 });
 
 // === ввод имени ===
@@ -706,7 +769,7 @@ function renderChips(q) {
     c.className = 'chip';
     c.textContent = n;
     if (n === me) c.classList.add('hl');
-    c.addEventListener('click', () => { me = n; saveMe(); hideName(); load(); });
+    c.addEventListener('click', () => { me = n; saveMe(); hideName(); load(); autoEnablePush(); });
     chips.appendChild(c);
   });
   chips.classList.toggle('hidden', !names.length);
@@ -732,6 +795,7 @@ $('nameSubmit').addEventListener('click', () => {
   saveMe();
   hideName();
   load();
+  autoEnablePush();
 });
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('nameSubmit').click(); });
 
@@ -740,6 +804,7 @@ $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('na
   applyLang();
   await load();
   if (!me) showName();
+  else autoEnablePush(); // имя уже есть — включаем уведомления сами
   setInterval(load, 15000); // автообновление
 })();
 </script>
