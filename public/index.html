@@ -68,28 +68,68 @@
       radial-gradient(380px 280px at -12% 22%, rgba(124,58,237,.11), transparent 65%),
       radial-gradient(500px 340px at 50% 118%, rgba(99,102,241,.07), transparent 65%);
   }
-  header { text-align: center; margin-bottom: 24px; position: relative; }
+  header { text-align: center; margin-bottom: 18px; position: relative; }
   .logo {
     font-size: 40px;
     display: inline-block;
     filter: drop-shadow(0 6px 18px rgba(255,61,127,.35));
   }
   h1 {
-    font-size: 26px; font-weight: 700; letter-spacing: -.025em;
+    font-size: 30px; font-weight: 700; letter-spacing: -.03em;
     color: var(--ink);
-    margin-top: 2px;
+    margin-top: 4px;
+    line-height: 1.1;
   }
-  .date { color: var(--muted); font-size: 13.5px; margin-top: 6px; letter-spacing: .01em; }
+  .date { color: var(--muted); font-size: 13.5px; margin-top: 8px; letter-spacing: .01em; }
 
   .welcome {
-    font-size: 19px;
-    font-weight: 600;
-    color: var(--ink);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--muted);
     text-align: center;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
     letter-spacing: -.01em;
   }
-  .welcome b { color: var(--accent); font-weight: 700; }
+  .welcome b { color: var(--ink); font-weight: 700; }
+
+  /* Сводка дня — крупные числа */
+  .stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 10px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .stat { flex: 1; text-align: center; }
+  .stat-num {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -.04em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .stat-num.accent { color: var(--accent); }
+  .stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .stat-divider {
+    width: 1px;
+    height: 44px;
+    background: var(--border-strong);
+  }
 
   .card {
     background: var(--surface);
@@ -387,24 +427,38 @@
   <button id="notifBtn" class="notif-btn">🔔 Enable notifications</button>
 </div>
 
-<div class="card">
-  <button class="big-btn idle" id="mainBtn">
-    🚫 I'm not eating today
-    <small id="mainBtnSub">tap if you won't eat — your meal goes to someone else</small>
-  </button>
-</div>
+<!-- Сводка дня: крупные числа, первичная иерархия -->
+<section class="stats" aria-label="Today's summary">
+  <div class="stat">
+    <div class="stat-num" id="statFree">0</div>
+    <div class="stat-label" id="statFreeLabel">free meals</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-num" id="statClaimed">0</div>
+    <div class="stat-label" id="statClaimedLabel">claimed</div>
+  </div>
+</section>
 
-<div class="card">
-  <h2><span id="freeTitle">🆓 Available meals</span> <span class="count" id="freeCount">0</span></h2>
+<button class="big-btn idle" id="mainBtn">
+  <span id="mainBtnTxt">I'm not eating today</span>
+  <small id="mainBtnSub">tap if you won't eat — your meal goes to someone else</small>
+</button>
+
+<div class="my-claim hidden" id="myClaimNote"></div>
+<div class="limit-note hidden" id="limitNote"></div>
+
+<section class="card">
+  <h2><span id="freeTitle">Available meals</span> <span class="count" id="freeCount">0</span></h2>
   <div id="freeList"></div>
   <div class="empty hidden" id="freeEmpty"><span class="e">🎉</span><span id="freeEmptyTxt">No free meals — everyone's eating</span></div>
-</div>
+</section>
 
-<div class="card">
-  <h2><span id="claimedTitle">🤝 Claimed meals</span> <span class="count" id="claimedCount">0</span></h2>
+<section class="card">
+  <h2><span id="claimedTitle">Claimed meals</span> <span class="count" id="claimedCount">0</span></h2>
   <div id="claimedList"></div>
   <div class="empty hidden" id="claimedEmpty"><span class="e">🍽️</span><span id="claimedEmptyTxt">Nobody claimed anything yet</span></div>
-</div>
+</section>
 
 <footer>
   <span id="updatedPrefix">Updated</span> <span id="updatedAt">—</span> · <button id="refreshBtn" data-i18n="refresh">refresh</button>
@@ -434,10 +488,11 @@ const I18N = {
   en: {
     dlgTitle: "Who are you?", dlgHint: "Pick your name from the list — colleagues will see you're not eating today",
     namePlaceholder: "Name", continueBtn: "Continue", headTitle: "Who's not eating",
-    mainIdle: "🚫 I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
-    mainSkipped: "✅ Marked: not eating", mainSkippedSub: "tap to cancel (if you changed your mind)",
-    mainClaimed: "🍽️ Your meal was claimed", mainClaimedSub: "you can't cancel — ask who took it to return it",
-    freeTitle: "🆓 Available meals", claimedTitle: "🤝 Claimed meals",
+    statFreeLabel: "free meals", statClaimedLabel: "claimed",
+    mainIdle: "I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
+    mainSkipped: "Marked — not eating", mainSkippedSub: "tap to cancel (if you changed your mind)",
+    mainClaimed: "Your meal was claimed", mainClaimedSub: "you can't cancel — ask who took it to return it",
+    freeTitle: "Available meals", claimedTitle: "Claimed meals",
     freeEmpty: "No free meals — everyone's eating", claimedEmpty: "Nobody claimed anything yet",
     subSkipped: "not eating today", subClaimed: "claimed by",
     claimBtn: "I'll take it 🍽️", returnBtn: "Return",
@@ -472,6 +527,8 @@ function applyLang() {
   $('dlgHint').textContent = t('dlgHint');
   $('nameInput').placeholder = t('namePlaceholder');
   $('nameSubmit').textContent = t('continueBtn');
+  $('statFreeLabel').textContent = t('statFreeLabel');
+  $('statClaimedLabel').textContent = t('statClaimedLabel');
   $('headTitle').textContent = t('headTitle');
   $('freeTitle').textContent = t('freeTitle');
   $('claimedTitle').textContent = t('claimedTitle');
@@ -592,10 +649,27 @@ function render() {
   freeList.innerHTML = '';
   claimedList.innerHTML = '';
 
-  $('freeEmpty').classList.toggle('hidden', state.free.length > 0);
-  $('claimedEmpty').classList.toggle('hidden', state.claimed.length > 0);
+  // статистика дня
+  $('statFree').textContent = state.free.length;
+  $('statClaimed').textContent = state.claimed.length;
   $('freeCount').textContent = state.free.length;
   $('claimedCount').textContent = state.claimed.length;
+
+  // баннер «я забрал» и «лимит достигнут»
+  const myClaimNote = $('myClaimNote');
+  if (myClaims.length > 0) {
+    myClaimNote.classList.remove('hidden');
+    myClaimNote.innerHTML = `${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
+  } else {
+    myClaimNote.classList.add('hidden');
+  }
+  const limitNote = $('limitNote');
+  if (limitReached) {
+    limitNote.classList.remove('hidden');
+    limitNote.textContent = t('limitNote');
+  } else {
+    limitNote.classList.add('hidden');
+  }
 
   for (const name of state.free) {
     const div = document.createElement('div');
@@ -625,30 +699,6 @@ function render() {
       ${mine ? `<button class="btn ghost small" data-unclaim="${escapeAttr(c.name)}">${t('returnBtn')}</button>` : ''}
     `;
     claimedList.appendChild(div);
-  }
-
-  // баннер «я забрал» и «лимит достигнут»
-  const myClaimBanner = document.querySelector('.my-claim');
-  if (myClaims.length > 0 && !myClaimBanner) {
-    const banner = document.createElement('div');
-    banner.className = 'my-claim';
-    banner.id = 'myClaimBanner';
-    banner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
-    $('banner').insertAdjacentElement('afterend', banner);
-  } else if (myClaimBanner) {
-    if (myClaims.length === 0) myClaimBanner.remove();
-    else myClaimBanner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
-  }
-  const limitBanner = document.querySelector('.limit-note');
-  if (limitReached && !limitBanner) {
-    const banner = document.createElement('div');
-    banner.className = 'limit-note';
-    banner.id = 'limitNote';
-    banner.textContent = `🚫 ${t('limitNote')}`;
-    $('banner').insertAdjacentElement('afterend', banner);
-  } else if (limitBanner) {
-    if (!limitReached) limitBanner.remove();
-    else limitBanner.textContent = `🚫 ${t('limitNote')}`;
   }
 
   $('updatedAt').textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
