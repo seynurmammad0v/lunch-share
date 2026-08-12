@@ -3,393 +3,437 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>🍱 Lunch — who's not eating</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍱</text></svg>">
+<title>Lunch Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23111'/><text x='50' y='72' font-family='Arial Black' font-size='64' font-weight='900' fill='%23F4F4F0' text-anchor='middle'>L</text></svg>">
 <link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 <link rel="apple-touch-icon" href="/icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#0e0b1e">
+<meta name="theme-color" content="#F4F4F0">
 <style>
   :root {
-    /* Xsolla-inspired palette: one accent (magenta), deep violet-black neutrals */
-    --bg: #0e0b1e;
-    --bg-2: #141028;
-    --surface: rgba(255,255,255,.035);
-    --surface-strong: rgba(255,255,255,.06);
-    --border: rgba(255,255,255,.085);
-    --border-strong: rgba(255,255,255,.14);
-    --ink: #f4f1ff;
-    --muted: #a7a1d0;
-    --accent: #ff3d7f;
-    --accent-soft: rgba(255,61,127,.14);
-    --accent-border: rgba(255,61,127,.38);
-    --green: #34d399;
-    --green-bg: rgba(52,211,153,.10);
-    --green-border: rgba(52,211,153,.30);
-    --red: #f87171;
-    --red-bg: rgba(248,113,113,.10);
-    --red-border: rgba(248,113,113,.32);
-    --amber: #fbbf24;
-    --amber-bg: rgba(251,191,36,.10);
-    --amber-border: rgba(251,191,36,.30);
-    --radius: 20px;
-    --radius-sm: 14px;
-    --shadow: 0 20px 50px rgba(5,3,15,.55);
-    --shadow-accent: 0 10px 30px rgba(255,61,127,.30);
-    --font: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Industrial Brutalism — Swiss Industrial Print substrate */
+    --paper: #F4F4F0;
+    --paper-2: #EAE8E3;
+    --ink: #111111;
+    --ink-soft: #55554F;
+    --red: #E61919;
+    --red-dark: #B31212;
+    --line: #111111;
+    --font-mono: "JetBrains Mono", "IBM Plex Mono", "Space Mono", ui-monospace, monospace;
+    --font-sans: "Archivo Black", "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  html { scroll-behavior: smooth; }
   body {
-    font-family: var(--font);
-    background: var(--bg);
+    font-family: var(--font-mono);
+    background: var(--paper);
     color: var(--ink);
-    max-width: 560px;
+    max-width: 620px;
     margin: 0 auto;
-    padding: 28px 18px calc(36px + env(safe-area-inset-bottom));
+    padding: 0 0 calc(40px + env(safe-area-inset-bottom));
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
-    font-feature-settings: "tnum" 1;
+    font-size: 13px;
   }
-  /* мягкие фирменные пятна — Xsolla ambient, очень сдержанно */
-  body::before {
+  /* аналоговое зерно */
+  body::after {
     content: "";
     position: fixed;
     inset: 0;
-    z-index: -1;
+    z-index: 99;
     pointer-events: none;
-    background:
-      radial-gradient(420px 300px at 88% -8%, rgba(255,61,127,.13), transparent 65%),
-      radial-gradient(380px 280px at -12% 22%, rgba(124,58,237,.11), transparent 65%),
-      radial-gradient(500px 340px at 50% 118%, rgba(99,102,241,.07), transparent 65%);
+    opacity: .35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
   }
-  header { text-align: center; margin-bottom: 18px; position: relative; }
-  .logo {
-    font-size: 40px;
-    display: inline-block;
-    filter: drop-shadow(0 6px 18px rgba(255,61,127,.35));
+
+  /* ===== шапка ===== */
+  header {
+    border-bottom: 3px solid var(--ink);
+    padding: 18px 16px 14px;
+    position: relative;
   }
+  .brand-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  .brand-row .rev { color: var(--red); }
   h1 {
-    font-size: 30px; font-weight: 700; letter-spacing: -.03em;
-    color: var(--ink);
-    margin-top: 4px;
-    line-height: 1.1;
+    font-family: var(--font-sans);
+    font-size: clamp(34px, 9vw, 56px);
+    font-weight: 900;
+    letter-spacing: -.03em;
+    line-height: .92;
+    text-transform: uppercase;
+    font-style: normal;
   }
-  .date { color: var(--muted); font-size: 13.5px; margin-top: 8px; letter-spacing: .01em; }
+  h1 .red { color: var(--red); }
+  .date {
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid var(--ink);
+    padding-top: 10px;
+  }
+  .date .dotted { border: 1px solid var(--ink); padding: 2px 8px; color: var(--red); }
 
   .welcome {
-    font-size: 17px;
-    font-weight: 500;
-    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
     text-align: center;
-    margin-bottom: 18px;
-    letter-spacing: -.01em;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ink);
   }
   .welcome b { color: var(--ink); font-weight: 700; }
 
-  /* Сводка дня — крупные числа */
-  .stats {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 20px 10px;
-    margin-bottom: 14px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+  .notif-top {
+    text-align: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ink);
   }
-  .stat { flex: 1; text-align: center; }
-  .stat-num {
-    font-size: 40px;
+  .notif-btn {
+    background: transparent;
+    color: var(--ink);
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    padding: 9px 22px;
+    font-family: var(--font-mono);
+    font-size: 12px;
     font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .1s ease, color .1s ease;
+  }
+  .notif-btn:active { background: var(--ink); color: var(--paper); }
+  .notif-btn.on { background: var(--ink); color: var(--paper); }
+  .notif-btn:disabled { opacity: .5; cursor: default; }
+
+  /* ===== сводка дня — телеметрия ===== */
+  .stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 3px solid var(--ink);
+  }
+  .stat {
+    padding: 18px 16px 16px;
+    position: relative;
+  }
+  .stat:first-child { border-right: 1px solid var(--ink); }
+  .stat::before {
+    content: "■";
+    position: absolute;
+    top: 10px; right: 10px;
+    font-size: 8px;
+    color: var(--red);
+  }
+  .stat-num {
+    font-family: var(--font-sans);
+    font-size: 52px;
+    font-weight: 900;
     letter-spacing: -.04em;
     line-height: 1;
-    font-variant-numeric: tabular-nums;
-    color: var(--ink);
   }
-  .stat-num.accent { color: var(--accent); }
+  .stat-num.accent { color: var(--red); }
   .stat-label {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .16em;
     text-transform: uppercase;
-    letter-spacing: .1em;
-    color: var(--muted);
-    margin-top: 8px;
-  }
-  .stat-divider {
-    width: 1px;
-    height: 44px;
-    background: var(--border-strong);
+    color: var(--ink-soft);
+    margin-top: 6px;
   }
 
+  /* ===== главная кнопка ===== */
+  .big-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 18px 16px;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 0;
+    padding: 20px 16px;
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: -.01em;
+    text-transform: uppercase;
+    cursor: pointer;
+    text-align: center;
+    position: relative;
+    transition: background .1s ease;
+  }
+  .big-btn small {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 400;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--paper);
+    opacity: .75;
+    margin-top: 6px;
+  }
+  .big-btn:active { background: var(--red); }
+  .big-btn.skipped { background: var(--paper); color: var(--red); border: 2px solid var(--red); }
+  .big-btn.skipped small { color: var(--red); }
+  .big-btn.claimed { background: var(--paper); color: var(--ink); border: 2px solid var(--ink); }
+  .big-btn.claimed small { color: var(--ink-soft); }
+  .big-btn.claimed::after {
+    content: "✓ CLAIMED";
+    position: absolute;
+    top: -11px; right: 12px;
+    background: var(--red);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    padding: 3px 8px;
+  }
+
+  .my-claim, .limit-note {
+    margin: 0 16px 12px;
+    padding: 10px 12px;
+    font-size: 12px;
+    letter-spacing: .04em;
+    border: 1px solid var(--ink);
+    background: var(--paper-2);
+  }
+  .my-claim b { font-weight: 700; }
+  .limit-note { border-color: var(--red); color: var(--red-dark); }
+
+  /* ===== секции ===== */
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    padding: 20px;
-    margin-bottom: 16px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--ink);
+    padding: 14px 16px 16px;
   }
   .card h2 {
-    font-size: 12.5px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .18em;
     text-transform: uppercase;
-    letter-spacing: .12em;
-    color: var(--muted);
-    margin-bottom: 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ink);
   }
   .card h2 .count {
-    background: var(--surface-strong);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 3px 11px;
-    font-size: 12.5px;
-    color: var(--ink);
-    font-weight: 600;
-  }
-
-  /* Главная кнопка */
-  .big-btn {
-    width: 100%;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 22px 16px;
-    font-family: var(--font);
-    font-size: 19px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 11px;
+    letter-spacing: .1em;
+    padding: 3px 9px;
     font-weight: 700;
-    letter-spacing: -.01em;
-    cursor: pointer;
-    transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
   }
-  .big-btn:active { transform: scale(.98); }
-  .big-btn.idle {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: var(--shadow-accent);
-  }
-  .big-btn.idle:active { box-shadow: 0 6px 18px rgba(255,61,127,.25); }
-  .big-btn.skipped { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
-  .big-btn.claimed { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
-  .big-btn small { display: block; font-size: 12.5px; font-weight: 500; margin-top: 5px; opacity: .75; }
 
-  /* Карточка человека */
+  /* строки людей — таблица */
   .person {
     display: flex;
     align-items: center;
-    gap: 13px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px dashed var(--ink-soft);
   }
   .person:last-of-type { border-bottom: none; }
-  .avatar {
-    width: 42px; height: 42px;
-    border-radius: 13px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: 700; color: #fff;
+  .idx {
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: .08em;
+    width: 24px;
     flex-shrink: 0;
-    box-shadow: 0 4px 14px rgba(5,3,15,.4);
   }
   .person .info { flex: 1; min-width: 0; }
-  .person .name { font-weight: 600; font-size: 15.5px; }
-  .person .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
-  .person .sub.claimed-by { color: var(--green); font-weight: 600; }
-  .person .sub.skipped { color: var(--red); font-weight: 600; }
+  .person .name { font-family: var(--font-sans); font-weight: 900; font-size: 15px; text-transform: uppercase; letter-spacing: -.01em; }
+  .person .sub { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); margin-top: 3px; }
+  .person .sub.claimed-by { color: var(--red-dark); font-weight: 700; }
+  .person .sub.skipped { color: var(--ink-soft); }
+  .person .sub.skipped::before { content: "● "; color: var(--red); font-size: 9px; }
 
   .btn {
-    border: none;
-    border-radius: 11px;
-    padding: 10px 15px;
-    font-family: var(--font);
-    font-size: 13.5px;
-    font-weight: 600;
+    border: 2px solid var(--ink);
+    border-radius: 0;
+    background: transparent;
+    padding: 8px 13px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: transform .08s ease, filter .15s ease, background .15s ease;
+    color: var(--ink);
+    transition: background .1s ease, color .1s ease;
   }
-  .btn:active { transform: scale(.96); }
-  .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(255,61,127,.25); }
-  .btn.primary:active { filter: brightness(.92); }
-  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); }
-  .btn.ghost:active { background: var(--surface-strong); }
-  .btn.small { padding: 7px 12px; font-size: 12.5px; }
-  .btn.taken { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
-  .btn:disabled { opacity: .45; cursor: default; }
+  .btn:active { background: var(--ink); color: var(--paper); }
+  .btn.primary { background: var(--ink); color: var(--paper); }
+  .btn.primary:active { background: var(--red); border-color: var(--red); }
+  .btn.ghost { border-color: var(--ink-soft); color: var(--ink-soft); }
+  .btn.small { padding: 6px 10px; font-size: 10px; }
+  .btn.taken { border-color: var(--red); color: var(--red); }
+  .btn:disabled { opacity: .4; cursor: default; }
 
   .empty {
     text-align: center;
-    color: var(--muted);
-    font-size: 14px;
-    padding: 20px 0 10px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 26px 0 16px;
   }
-  .empty .e { font-size: 32px; display: block; margin-bottom: 10px; opacity: .9; }
+  .empty .e { display: block; margin-bottom: 10px; color: var(--ink); font-size: 14px; letter-spacing: .2em; }
 
-  .my-claim {
-    background: var(--green-bg);
-    border: 1px solid var(--green-border);
-    border-radius: var(--radius-sm);
-    padding: 11px 14px;
-    font-size: 13.5px;
-    color: var(--green);
-    font-weight: 600;
-    margin-bottom: 14px;
-  }
-
-  /* Лимит дня достигнут */
-  .limit-note {
-    background: var(--amber-bg);
-    border: 1px solid var(--amber-border);
-    border-radius: var(--radius-sm);
-    padding: 11px 14px;
-    font-size: 13.5px;
-    color: var(--amber);
-    font-weight: 600;
-    margin-bottom: 14px;
-  }
-
-  /* Ввод имени */
+  /* ===== модалка имени ===== */
   .overlay {
     position: fixed; inset: 0;
-    background: rgba(8,5,18,.72);
+    background: rgba(17,17,17,.82);
     display: flex; align-items: center; justify-content: center;
     padding: 24px;
     z-index: 10;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
   }
   .overlay .dialog {
-    background: var(--bg-2);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    padding: 28px 22px 24px;
-    width: 100%; max-width: 380px;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 0;
+    padding: 26px 20px 20px;
+    width: 100%; max-width: 400px;
     text-align: center;
-    box-shadow: var(--shadow);
+    box-shadow: 10px 10px 0 rgba(17,17,17,.25);
   }
-  .dialog .d-emoji { font-size: 42px; filter: drop-shadow(0 6px 16px rgba(255,61,127,.4)); }
-  .dialog h3 { font-size: 20px; font-weight: 700; margin: 12px 0 6px; letter-spacing: -.02em; color: var(--ink); }
-  .dialog p { color: var(--muted); font-size: 13.5px; margin-bottom: 18px; line-height: 1.5; }
+  .dialog .d-emoji {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    letter-spacing: .22em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .dialog h3 {
+    font-family: var(--font-sans);
+    font-size: 26px; font-weight: 900; margin: 0 0 8px;
+    letter-spacing: -.02em; text-transform: uppercase; line-height: 1;
+  }
+  .dialog p { color: var(--ink-soft); font-size: 12px; margin-bottom: 18px; line-height: 1.5; letter-spacing: .03em; }
   .dialog input {
     width: 100%;
-    padding: 14px 16px;
-    font-family: var(--font);
-    font-size: 16px;
-    background: rgba(255,255,255,.05);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
+    padding: 13px 14px;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    background: #fff;
+    border: 2px solid var(--ink);
+    border-radius: 0;
     outline: none;
     margin-bottom: 12px;
     text-align: center;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--ink);
-    transition: border-color .15s ease, box-shadow .15s ease;
+    text-transform: uppercase;
+    letter-spacing: .05em;
   }
-  .dialog input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,61,127,.16); }
-  .dialog input::placeholder { color: var(--muted); }
-  .dialog .btn { width: 100%; padding: 15px; font-size: 15.5px; margin-top: 8px; }
+  .dialog input:focus { border-color: var(--red); box-shadow: 4px 4px 0 rgba(230,25,25,.2); }
+  .dialog input::placeholder { color: #999; }
+  .dialog .btn { width: 100%; padding: 14px; font-size: 13px; margin-top: 8px; }
 
   .confirm-name {
-    font-size: 19px;
-    font-weight: 700;
-    margin: 16px 0 8px;
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 900;
+    margin: 14px 0 10px;
     word-break: break-word;
+    text-transform: uppercase;
     letter-spacing: -.01em;
   }
   .confirm-warn {
-    background: var(--amber-bg);
-    border: 1px solid var(--amber-border);
-    border-radius: var(--radius-sm);
+    border: 2px solid var(--red);
+    background: #fff;
     padding: 11px 13px;
-    font-size: 13px;
+    font-size: 11.5px;
     line-height: 1.5;
-    color: var(--amber);
+    color: var(--red-dark);
+    letter-spacing: .03em;
     margin-bottom: 12px;
+    text-align: left;
+    text-transform: uppercase;
   }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; max-height: 200px; overflow-y: auto; }
+  .chips {
+    display: flex; flex-wrap: wrap; gap: 7px; justify-content: center;
+    margin-bottom: 14px; max-height: 200px; overflow-y: auto;
+  }
   .chip {
-    background: rgba(255,255,255,.05);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 8px 15px;
-    font-family: var(--font);
-    font-size: 13.5px;
-    font-weight: 500;
+    background: #fff;
+    border: 1.5px solid var(--ink);
+    border-radius: 0;
+    padding: 8px 14px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
     cursor: pointer;
     color: var(--ink);
-    transition: background .15s ease, border-color .15s ease;
+    text-transform: uppercase;
+    transition: background .1s ease, color .1s ease;
   }
-  .chip:active { background: rgba(255,255,255,.11); }
-  .chip.hl { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(255,61,127,.3); }
+  .chip:active { background: var(--ink); color: var(--paper); }
+  .chip.hl { background: var(--ink); border-color: var(--ink); color: var(--paper); }
   .chip-taken {
     opacity: .45;
     border-style: dashed;
-    color: var(--muted);
+    color: var(--ink-soft);
     text-decoration: line-through;
   }
 
-  .notif-btn {
-    background: var(--surface-strong);
-    color: var(--ink);
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    padding: 10px 20px;
-    font-family: var(--font);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s ease, border-color .15s ease;
-  }
-  .notif-btn:active { background: rgba(255,255,255,.1); }
-  .notif-btn.on { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
-  .notif-btn:disabled { opacity: .5; cursor: default; }
-
-  .notif-top {
-    text-align: center;
-    margin: -4px 0 18px;
-  }
   footer {
     text-align: center;
-    font-size: 12px;
-    color: #6d6793;
-    margin-top: 28px;
-    letter-spacing: .02em;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-top: 22px;
+    padding: 0 16px;
   }
   footer button {
     background: none; border: none; color: inherit;
-    text-decoration: underline; cursor: pointer; font-size: 12px;
+    text-decoration: underline; cursor: pointer; font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
   }
   .toast {
-    position: fixed; left: 50%; bottom: 28px;
+    position: fixed; left: 50%; bottom: 24px;
     transform: translateX(-50%);
-    background: var(--bg-2);
-    border: 1px solid var(--border-strong);
-    color: var(--ink);
-    padding: 12px 20px; border-radius: 999px;
-    font-family: var(--font);
-    font-size: 13.5px; font-weight: 500;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 12px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px; font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
     opacity: 0; pointer-events: none;
-    transition: opacity .2s ease;
+    transition: opacity .15s ease;
     z-index: 20;
     white-space: nowrap;
-    box-shadow: var(--shadow);
     max-width: 90vw;
     overflow: hidden;
     text-overflow: ellipsis;
+    border: 2px solid var(--ink);
   }
   .toast.show { opacity: 1; }
   .hidden { display: none !important; }
@@ -399,7 +443,7 @@
 
 <div id="nameOverlay" class="overlay hidden">
   <div class="dialog">
-    <div class="d-emoji">🍱</div>
+    <div class="d-emoji">// IDENTIFICATION //</div>
     <h3 id="dlgTitle">Who are you?</h3>
     <p id="dlgHint">Pick your name from the list — colleagues will see you're not eating today</p>
     <div id="chips" class="chips"></div>
@@ -408,7 +452,7 @@
 
     <div id="confirmStep" class="hidden">
       <div class="confirm-name" id="confirmName"></div>
-      <div class="confirm-warn">⚠️ This name is <b>permanent</b> — you won't be able to change it later. This phone stays linked to this name.</div>
+      <div class="confirm-warn">⚠ This name is <b>permanent</b> — you won't be able to change it later. This phone stays linked to this name.</div>
       <button class="btn primary" id="confirmYes">Confirm — keep this name</button>
       <button class="btn ghost" id="confirmNo">Go back</button>
     </div>
@@ -416,26 +460,31 @@
 </div>
 
 <header>
-  <div class="logo">🍱</div>
-  <h1 id="headTitle">Who's not eating</h1>
-  <div class="date" id="dateLabel"></div>
+  <div class="brand-row">
+    <span>LUNCH<span style="color:var(--red)">//</span>TRACKER</span>
+    <span class="rev">REV.2026</span>
+  </div>
+  <h1>Who's<br><span class="red">not eating</span></h1>
+  <div class="date">
+    <span id="dateLabel"></span>
+    <span class="dotted" id="statusDot">STANDBY</span>
+  </div>
 </header>
 
-<div class="welcome" id="welcome">Welcome! 👋</div>
+<div class="welcome" id="welcome">OPERATOR: UNKNOWN</div>
 
 <div class="notif-top hidden" id="notifTop">
-  <button id="notifBtn" class="notif-btn">🔔 Enable notifications</button>
+  <button id="notifBtn" class="notif-btn">ENABLE NOTIFICATIONS</button>
 </div>
 
-<!-- Сводка дня: крупные числа, первичная иерархия -->
+<!-- Сводка дня: телеметрия -->
 <section class="stats" aria-label="Today's summary">
   <div class="stat">
     <div class="stat-num" id="statFree">0</div>
     <div class="stat-label" id="statFreeLabel">free meals</div>
   </div>
-  <div class="stat-divider"></div>
   <div class="stat">
-    <div class="stat-num" id="statClaimed">0</div>
+    <div class="stat-num accent" id="statClaimed">0</div>
     <div class="stat-label" id="statClaimedLabel">claimed</div>
   </div>
 </section>
@@ -451,13 +500,13 @@
 <section class="card">
   <h2><span id="freeTitle">Available meals</span> <span class="count" id="freeCount">0</span></h2>
   <div id="freeList"></div>
-  <div class="empty hidden" id="freeEmpty"><span class="e">🎉</span><span id="freeEmptyTxt">No free meals — everyone's eating</span></div>
+  <div class="empty hidden" id="freeEmpty"><span class="e">/// EMPTY ///</span><span id="freeEmptyTxt">No free meals — everyone's eating</span></div>
 </section>
 
 <section class="card">
   <h2><span id="claimedTitle">Claimed meals</span> <span class="count" id="claimedCount">0</span></h2>
   <div id="claimedList"></div>
-  <div class="empty hidden" id="claimedEmpty"><span class="e">🍽️</span><span id="claimedEmptyTxt">Nobody claimed anything yet</span></div>
+  <div class="empty hidden" id="claimedEmpty"><span class="e">/// EMPTY ///</span><span id="claimedEmptyTxt">Nobody claimed anything yet</span></div>
 </section>
 
 <footer>
@@ -468,26 +517,11 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-// Xsolla-градиенты для аватаров (единая маджента-семья, приглушённые)
-const AVATAR_GRADIENTS = [
-  'linear-gradient(135deg, #ff3d7f, #a855f7)',
-  'linear-gradient(135deg, #a855f7, #6366f1)',
-  'linear-gradient(135deg, #f43f5e, #ff3d7f)',
-  'linear-gradient(135deg, #6366f1, #8b5cf6)',
-  'linear-gradient(135deg, #ff3d7f, #f43f5e)',
-  'linear-gradient(135deg, #8b5cf6, #ff3d7f)',
-];
-function avatarColor(name) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-  return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length];
-}
-
 // ===== i18n =====
 const I18N = {
   en: {
     dlgTitle: "Who are you?", dlgHint: "Pick your name from the list — colleagues will see you're not eating today",
-    namePlaceholder: "Name", continueBtn: "Continue", headTitle: "Who's not eating",
+    namePlaceholder: "NAME", continueBtn: "CONFIRM", headTitle: "Who's not eating",
     statFreeLabel: "free meals", statClaimedLabel: "claimed",
     mainIdle: "I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
     mainSkipped: "Marked — not eating", mainSkippedSub: "tap to cancel (if you changed your mind)",
@@ -495,23 +529,23 @@ const I18N = {
     freeTitle: "Available meals", claimedTitle: "Claimed meals",
     freeEmpty: "No free meals — everyone's eating", claimedEmpty: "Nobody claimed anything yet",
     subSkipped: "not eating today", subClaimed: "claimed by",
-    claimBtn: "I'll take it 🍽️", returnBtn: "Return",
-    myClaim: "You claimed", updatedPrefix: "Updated", refresh: "refresh",
+    claimBtn: "TAKE", returnBtn: "RETURN",
+    myClaim: "YOU CLAIMED", updatedPrefix: "UPDATED", refresh: "refresh",
     confirmTitle: "Confirm your name",
-    notifBtn: "🔔 Enable notifications", notifOn: "🔔 Notifications on",
+    notifBtn: "ENABLE NOTIFICATIONS", notifOn: "NOTIFICATIONS: ON",
     notifDenied: "Notifications blocked in browser — enable in settings",
-    notifBlocked: "🔕 Notifications are blocked in browser settings. Allow them: lock icon → Permissions → Notifications → Allow",
+    notifBlocked: "Notifications are blocked in browser settings. Allow them: lock icon → Permissions → Notifications → Allow",
     notifUnsupported: "Notifications not supported on this device",
-    notifOpenBrowser: "📲 Open in Safari/Chrome — notifications don't work inside apps (Telegram etc.)",
-    notifIos: "📱 Enable notifications: Share → Add to Home Screen",
-    iosTitle: "📱 Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
+    notifOpenBrowser: "Open in Safari/Chrome — notifications don't work inside apps (Telegram etc.)",
+    notifIos: "Enable notifications: Share → Add to Home Screen",
+    iosTitle: "Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
     bannerTitle: "Turn on notifications", bannerBody: "get notified when someone takes your meal — or when it's free again",
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
-    toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
+    toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal",
     toastUnclaimed: "Meal is available again", toastCantCancel: "Meal already claimed — ask them to return it",
-    toastLimit: "Daily limit reached — you can take up to 2 meals", limitNote: "Daily limit reached: you've taken your 2 meals",
+    toastLimit: "Daily limit reached — you can take up to 2 meals", limitNote: "DAILY LIMIT REACHED — YOU'VE TAKEN YOUR 2 MEALS",
     toastNotifOff: "Notifications turned off",
-    toastLoad: "Couldn't load 😕", toastErr: "Something went wrong 😕", toastInvalidName: "Invalid name",
+    toastLoad: "Couldn't load", toastErr: "Something went wrong", toastInvalidName: "Invalid name",
     toastEnterName: "Enter your name", toastTooLong: "Name is too long", toastBadChars: "Name has invalid characters",
     nameTaken: "This name is already taken — pick another one",
     months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
@@ -529,7 +563,6 @@ function applyLang() {
   $('nameSubmit').textContent = t('continueBtn');
   $('statFreeLabel').textContent = t('statFreeLabel');
   $('statClaimedLabel').textContent = t('statClaimedLabel');
-  $('headTitle').textContent = t('headTitle');
   $('freeTitle').textContent = t('freeTitle');
   $('claimedTitle').textContent = t('claimedTitle');
   $('freeEmptyTxt').textContent = t('freeEmpty');
@@ -537,7 +570,7 @@ function applyLang() {
   $('updatedPrefix').textContent = t('updatedPrefix');
   $('refreshBtn').textContent = t('refresh');
   renderNotifBtn();
-  document.title = t('headTitle') + ' 🍱';
+  document.title = 'Lunch Tracker';
   if (state) render();
 }
 
@@ -565,9 +598,6 @@ let me = localStorage.getItem('lunch_name') || '';
 let state = null;
 let myState = 'idle'; // idle | skipped-free | skipped-claimed
 
-function initials(name) {
-  return name.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase();
-}
 function fmtDate(iso) {
   const [y,m,d] = iso.split('-').map(Number);
   const dt = new Date(y, m-1, d);
@@ -620,7 +650,7 @@ async function load() {
 function render() {
   $('dateLabel').textContent = fmtDate(state.date);
   const shownName = me || (state.me && state.me.name) || '';
-  $('welcome').innerHTML = shownName ? `Welcome, <b>${shownName.replace(/</g, '&lt;')}</b> 👋` : 'Welcome! 👋';
+  $('welcome').innerHTML = shownName ? `OPERATOR: <b>${shownName.replace(/</g, '&lt;')}</b>` : 'OPERATOR: UNKNOWN';
 
   // моё состояние — сервер определяет по device, имя менять можно свободно
   const mySkip = state.me && state.me.skip ? state.me.skip : null; // {name, claimed_by} | null
@@ -630,6 +660,11 @@ function render() {
   myState = mySkip
     ? (mySkip.claimed_by ? 'skipped-claimed' : 'skipped-free')
     : 'idle';
+
+  const dot = $('statusDot');
+  dot.textContent = myState === 'idle' ? 'STANDBY' : myState === 'skipped-free' ? 'MARKED' : 'CLAIMED';
+  dot.style.borderColor = myState === 'skipped-free' ? 'var(--red)' : 'var(--ink)';
+  dot.style.color = myState === 'skipped-free' ? 'var(--red)' : 'var(--red)';
 
   const btn = $('mainBtn');
   if (myState === 'idle') {
@@ -675,8 +710,9 @@ function render() {
     const div = document.createElement('div');
     div.className = 'person';
     const isMine = mySkip && mySkip.name === name; // своя порция — без кнопки
+    const idx = String(state.free.indexOf(name) + 1).padStart(2, '0');
     div.innerHTML = `
-      <div class="avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
+      <span class="idx">${idx}</span>
       <div class="info">
         <div class="name">${escapeHtml(name)}</div>
         <div class="sub skipped">${t('subSkipped')}</div>
@@ -690,8 +726,9 @@ function render() {
     const div = document.createElement('div');
     div.className = 'person';
     const mine = myClaims.includes(c.name); // вернуть может только мой телефон
+    const idx = String(state.claimed.indexOf(c) + 1).padStart(2, '0');
     div.innerHTML = `
-      <div class="avatar" style="background:${avatarColor(c.name)}">${initials(c.name)}</div>
+      <span class="idx">${idx}</span>
       <div class="info">
         <div class="name">${escapeHtml(c.name)}</div>
         <div class="sub claimed-by">${t('subClaimed')} ${escapeHtml(c.by)}</div>
@@ -737,7 +774,7 @@ document.addEventListener('click', async (ev) => {
     const from = claimBtn.dataset.claim;
     try {
       await apiPost('/api/claim', { name: me, from });
-      toast(`${t('toastClaimed')} ${from} 🎉`);
+      toast(`${t('toastClaimed')} ${from}`);
       load();
     } catch (e) {
       toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : e.message === 'no_skip' ? t('toastClaimedErr') : e.message === 'limit_reached' ? t('toastLimit') : t('toastErr'));
@@ -837,7 +874,7 @@ async function subscribePush(silent) {
     localStorage.setItem('lunch_push', '1');
     localStorage.removeItem('lunch_push_off');
     renderNotifBtn();
-    if (!silent) toast('🔔 ' + t('notifOn'));
+    if (!silent) toast(t('notifOn'));
     return { ok: true };
   } catch (e) {
     // NotAllowedError = браузер отклонил запрос разрешения
