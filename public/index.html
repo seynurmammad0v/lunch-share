@@ -338,6 +338,7 @@ const I18N = {
     myClaim: "You claimed", updatedPrefix: "Updated", refresh: "refresh", changeName: "change name",
     notifBtn: "🔔 Enable notifications", notifOn: "🔔 Notifications on",
     notifDenied: "Notifications blocked in browser — enable in settings",
+    notifBlocked: "🔕 Notifications are blocked in browser settings. Allow them: lock icon → Permissions → Notifications → Allow",
     notifUnsupported: "Notifications not supported on this device",
     notifOpenBrowser: "📲 Open in Safari/Chrome — notifications don't work inside apps (Telegram etc.)",
     notifIos: "📱 Enable notifications: Share → Add to Home Screen",
@@ -649,14 +650,19 @@ function renderNotifBtn() {
 }
 
 async function subscribePush(silent) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return { ok: false, reason: 'unsupported' };
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
-    const keyRes = await fetch('/api/vapid-public').then(r => r.json());
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(keyRes.key),
-    });
+    // переиспользуем существующую подписку браузера, если она есть —
+    // так вкл/выкл/вкл работает мгновенно и без ошибок
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const keyRes = await fetch('/api/vapid-public').then(r => r.json());
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyRes.key),
+      });
+    }
     await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -664,19 +670,37 @@ async function subscribePush(silent) {
     });
     pushSubscribed = true;
     localStorage.setItem('lunch_push', '1');
+    localStorage.removeItem('lunch_push_off');
     renderNotifBtn();
     if (!silent) toast('🔔 ' + t('notifOn'));
-    return true;
+    return { ok: true };
   } catch (e) {
-    return false;
+    // NotAllowedError = браузер отклонил запрос разрешения
+    return { ok: false, reason: (e && e.name === 'NotAllowedError') ? 'blocked' : 'error' };
   }
 }
 
+// Выключение: деактивируем на сервере, подписку браузера НЕ трогаем.
+// Повторное включение = просто снова регистрируем ту же подписку — без блокировок.
+async function unsubscribePush() {
+  pushSubscribed = false;
+  localStorage.setItem('lunch_push', '0');
+  localStorage.setItem('lunch_push_off', '1'); // пользователь явно выключил — не включаем автоматически
+  renderNotifBtn();
+  toast(t('toastNotifOff'));
+  fetch('/api/unsubscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device }),
+  }).catch(() => {});
+}
+
 // Автовключение: вызывается после ввода имени и при старте.
-// На iPhone нужно «Добавить на главный экран» — показываем подсказку, не спрашиваем.
+// НЕ включаем, если пользователь явно выключил (lunch_push_off) или на iOS без Home Screen.
 async function autoEnablePush() {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) { renderNotifBtn(); return; }
   if (pushSubscribed) { renderNotifBtn(); return; }
+  if (localStorage.getItem('lunch_push_off') === '1') { renderNotifBtn(); return; } // пользователь выключил
   if (isIOS() && !isStandalone()) { renderNotifBtn(); return; }
   if (Notification.permission === 'granted') {
     await subscribePush(true);
@@ -685,8 +709,8 @@ async function autoEnablePush() {
   if (Notification.permission === 'default' && !pushAsked) {
     pushAsked = true;
     localStorage.setItem('lunch_push_asked', '1');
-    const ok = await subscribePush(true);
-    if (!ok) { renderNotifBtn(); }
+    await subscribePush(true);
+    renderNotifBtn();
     return;
   }
   renderNotifBtn();
@@ -694,15 +718,7 @@ async function autoEnablePush() {
 
 $('notifBtn').addEventListener('click', async () => {
   if (pushSubscribed) {
-    pushSubscribed = false;
-    localStorage.setItem('lunch_push', '0');
-    renderNotifBtn();
-    toast(t('toastNotifOff'));
-    fetch('/api/unsubscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device }),
-    }).catch(() => {});
+    await unsubscribePush();
     return;
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
@@ -716,8 +732,11 @@ $('notifBtn').addEventListener('click', async () => {
     toast(t('iosBody'));
     return;
   }
-  const ok = await subscribePush(false);
-  if (!ok) toast(t('notifDenied'));
+  const res = await subscribePush(false);
+  if (!res.ok) {
+    if (res.reason === 'blocked') toast(t('notifBlocked')); // браузер запретил — как разрешить
+    else toast(t('notifDenied'));
+  }
 });
 
 // === ввод имени ===
