@@ -135,17 +135,18 @@ function sanitizeDevice(raw) {
   return d;
 }
 
-// Обновить отображаемое имя device (и во всех его записях за сегодня).
-// Имя закрепляется ПЕРВЫМ выбором навсегда: один телефон = одно имя, менять нельзя.
-function syncName(device, name, date) {
+// Закрепить имя за телефоном. Имя уникально: если его уже выбрал другой телефон — отказ.
+// Возвращает { name } или { taken: true }
+function lockNameFor(device, name) {
   const existing = db.prepare(`SELECT name FROM people WHERE device_id = ?`).get(device);
   if (existing) {
     db.prepare(`UPDATE people SET last_seen = datetime('now') WHERE device_id = ?`).run(device);
-    return existing.name; // имя уже закреплено — новое игнорируем
+    return { name: existing.name }; // имя уже закреплено за этим телефоном
   }
+  const taken = db.prepare(`SELECT 1 FROM people WHERE name = ? COLLATE NOCASE`).get(name);
+  if (taken) return { taken: true }; // имя уже выбрал другой телефон
   db.prepare(`INSERT INTO people (device_id, name) VALUES (?, ?)`).run(device, name);
-  db.prepare(`UPDATE skips SET name = ? WHERE device_id = ? AND date = ?`).run(name, device, date);
-  return name;
+  return { name };
 }
 
 function getTodayState(device) {
@@ -220,14 +221,14 @@ function notifyDevice(deviceId, title, body, url) {
 
 // === API ===
 
-// Закрепить имя за телефоном (первый выбор — навсегда; повторные вызовы возвращают прежнее имя)
+// Закрепить имя за телефоном (первый выбор — навсегда; имя уникально для всех)
 app.post('/api/name', (req, res) => {
   const device = sanitizeDevice(req.body && req.body.device);
   const name = sanitizeName(req.body && req.body.name);
   if (!device || !name) return res.status(400).json({ error: 'invalid_params' });
-  const date = todayStr();
-  const locked = syncName(device, name, date);
-  res.json({ name: locked, locked: true });
+  const r = lockNameFor(device, name);
+  if (r.taken) return res.status(409).json({ error: 'name_taken' });
+  res.json({ name: r.name, locked: true });
 });
 
 // Версия приложения — клиент сравнивает и сам перезагружается при обновлении
@@ -248,9 +249,10 @@ app.post('/api/skip', (req, res) => {
   const name = sanitizeName(req.body && req.body.name);
   if (!device || !name) return res.status(400).json({ error: 'invalid_params' });
   const date = todayStr();
-  const lockedName = syncName(device, name, date);
+  const locked = lockNameFor(device, name);
+  if (locked.taken) return res.status(409).json({ error: 'name_taken' });
   db.prepare(`INSERT OR IGNORE INTO skips (date, device_id, name) VALUES (?, ?, ?)`)
-    .run(date, device, lockedName);
+    .run(date, device, locked.name);
   res.json(getTodayState(device));
 });
 
@@ -292,10 +294,11 @@ app.post('/api/claim', (req, res) => {
   const cnt = db.prepare(`SELECT COUNT(*) AS c FROM skips WHERE date = ? AND claimed_by_device = ?`).get(date, device).c;
   if (cnt >= MAX_CLAIMS_PER_DAY) return res.status(409).json({ error: 'limit_reached' });
 
-  const lockedName = syncName(device, name, date);
+  const locked = lockNameFor(device, name);
+  if (locked.taken) return res.status(409).json({ error: 'name_taken' });
   const r = db.prepare(`UPDATE skips SET claimed_by_device = ?, claimed_by_name = ?
                         WHERE date = ? AND name = ? AND claimed_by_device IS NULL`)
-    .run(device, lockedName, date, from);
+    .run(device, locked.name, date, from);
   if (r.changes === 0) return res.status(409).json({ error: 'already_claimed' });
 
   // пуш владельцу порции: её забрали

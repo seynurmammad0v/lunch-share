@@ -241,6 +241,12 @@
   }
   .chip:active { background: #eee9e0; }
   .chip.hl { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip-taken {
+    opacity: .55;
+    border-style: dashed;
+    color: var(--muted);
+    text-decoration: line-through;
+  }
 
   .notif-btn {
     background: var(--accent);
@@ -376,6 +382,7 @@ const I18N = {
     toastNotifOff: "Notifications turned off",
     toastLoad: "Couldn't load 😕", toastErr: "Something went wrong 😕", toastInvalidName: "Invalid name",
     toastEnterName: "Enter your name", toastTooLong: "Name is too long", toastBadChars: "Name has invalid characters",
+    nameTaken: "This name is already taken — pick another one",
     months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
   }
@@ -764,7 +771,7 @@ $('notifBtn').addEventListener('click', async () => {
 
 // === ввод имени (один телефон = одно имя, навсегда) ===
 
-// автокомплит: фильтруем штат (roster) + тех, кто уже пользовался
+// автокомплит: штат (roster) + те, кто уже пользовался; занятые имена видно, но выбрать нельзя
 function filterNames(q) {
   const all = new Set([...(state?.roster || []), ...(state?.people || [])]);
   const query = (q || '').trim().toLowerCase();
@@ -782,16 +789,24 @@ function filterNames(q) {
   return names.slice(0, 40);
 }
 
+function isNameTaken(name) {
+  return (state?.people || []).some(p => p.toLowerCase() === name.toLowerCase());
+}
+
 function renderChips(q) {
   const chips = $('chips');
   chips.innerHTML = '';
   const names = filterNames(q);
   names.forEach(n => {
     const c = document.createElement('button');
-    c.className = 'chip';
-    c.textContent = n;
+    const taken = isNameTaken(n);
+    c.className = taken ? 'chip chip-taken' : 'chip';
+    c.textContent = taken ? `${n} — taken` : n;
     if (n === me) c.classList.add('hl');
-    c.addEventListener('click', () => showConfirm(n));
+    c.addEventListener('click', () => {
+      if (taken) { toast(t('nameTaken')); return; }
+      showConfirm(n);
+    });
     chips.appendChild(c);
   });
   chips.classList.toggle('hidden', !names.length);
@@ -825,19 +840,29 @@ function showConfirm(name) {
 function hideName() { $('nameOverlay').classList.add('hidden'); }
 function saveMe() { localStorage.setItem('lunch_name', me); }
 
-// Закрепить имя на сервере — первый выбор навсегда
+// Закрепить имя на сервере — первый выбор навсегда, имя уникально
 async function lockName(name) {
   try {
     const r = await apiPost('/api/name', { name });
     me = r.name; // сервер вернёт закреплённое имя (даже если телефон уже имел другое)
     saveMe();
+    hideName();
+    load();
+    autoEnablePush();
   } catch (e) {
-    me = name;
-    saveMe();
+    if (e.message === 'name_taken') {
+      // кто-то успел занять имя — возвращаемся к выбору с сообщением
+      toast(t('nameTaken'));
+      await load();
+      showName();
+    } else {
+      me = name;
+      saveMe();
+      hideName();
+      load();
+      autoEnablePush();
+    }
   }
-  hideName();
-  load();
-  autoEnablePush();
 }
 
 $('nameInput').addEventListener('input', () => renderChips($('nameInput').value));
@@ -847,6 +872,7 @@ $('nameSubmit').addEventListener('click', () => {
   if (!v) return toast(t('toastEnterName'));
   if (v.length > 40) return toast(t('toastTooLong'));
   if (!/^[\p{L}\p{N} \-'.]+$/u.test(v)) return toast(t('toastBadChars'));
+  if (isNameTaken(v)) return toast(t('nameTaken')); // занято — сразу говорим
   showConfirm(v);
 });
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('nameSubmit').click(); });
