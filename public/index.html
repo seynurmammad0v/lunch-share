@@ -417,17 +417,12 @@
     text-transform: uppercase;
   }
   footer button:disabled { opacity: .6; cursor: wait; }
-  /* терминальный спиннер на кнопке refresh */
-  .sync::after {
-    content: "/";
+  /* спиннер — настоящий элемент, меняется через JS (работает в Safari) */
+  .spin {
+    display: inline-block;
+    min-width: 14px;
     margin-left: 6px;
-    animation: termspin .5s steps(4) infinite;
-  }
-  @keyframes termspin {
-    0% { content: "/"; }
-    25% { content: "—"; }
-    50% { content: "\\"; }
-    75% { content: "|"; }
+    text-align: left;
   }
   /* вспышка контента после обновления */
   body.refreshing .card,
@@ -819,17 +814,26 @@ document.addEventListener('click', async (ev) => {
 $('refreshBtn').addEventListener('click', async () => {
   const btn = $('refreshBtn');
   btn.disabled = true;
-  btn.classList.add('sync');
   btn.textContent = 'SYNC';
+  // настоящий терминальный спиннер (JS-цикл, работает во всех браузерах)
+  const chars = ['|', '/', '—', '\\'];
+  let i = 0;
+  const spin = document.createElement('span');
+  spin.className = 'spin';
+  spin.textContent = chars[0];
+  btn.appendChild(spin);
+  const timer = setInterval(() => { spin.textContent = chars[++i % chars.length]; }, 120);
+  const started = Date.now();
   document.body.classList.add('refreshing');
   await load();
-  // даём анимации вспышки отыграть, потом возвращаем кнопку
+  // держим состояние SYNC минимум 800 мс — чтобы обновление было видно
+  const wait = Math.max(0, 800 - (Date.now() - started));
   setTimeout(() => {
+    clearInterval(timer);
     btn.disabled = false;
-    btn.classList.remove('sync');
     btn.textContent = t('refresh');
     document.body.classList.remove('refreshing');
-  }, 500);
+  }, wait);
 });
 
 // === Web Push уведомления (автоматические) ===
