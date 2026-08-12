@@ -334,8 +334,7 @@ const I18N = {
     notifDenied: "Notifications blocked in browser — enable in settings",
     notifUnsupported: "Notifications not supported on this device",
     notifOpenBrowser: "📲 Open in Safari/Chrome — notifications don't work inside apps (Telegram etc.)",
-    notifIos: "📱 iPhone: Share → Add to Home Screen, then open Lunch from home screen",
-    notifIosOld: "📱 iPhone: needs iOS 16.4+ — update your iPhone, then Share → Add to Home Screen",
+    notifIos: "📱 Enable notifications: Share → Add to Home Screen",
     iosTitle: "📱 Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
     bannerTitle: "Turn on notifications", bannerBody: "get notified when someone takes your meal — or when it's free again",
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
@@ -620,7 +619,7 @@ function renderNotifBtn() {
     btn.disabled = false;
     btn.classList.remove('on');
     if (isIOS()) {
-      btn.textContent = t('notifIosOld');
+      btn.textContent = t('notifIos');
     } else if (isInAppBrowser()) {
       btn.textContent = t('notifOpenBrowser'); // внутри Telegram и т.п. — подсказка, а не «не поддерживается»
     } else {
@@ -694,7 +693,7 @@ $('notifBtn').addEventListener('click', async () => {
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     // нет поддержки push — объясняем, что делать
-    if (isIOS()) toast(t('notifIosOld'));
+    if (isIOS()) toast(t('notifIos'));
     else if (isInAppBrowser()) toast(t('notifOpenBrowser'));
     else toast(t('notifUnsupported'));
     return;
