@@ -209,7 +209,24 @@
     font-weight: 600;
   }
   .dialog input:focus { border-color: var(--accent); }
-  .dialog .btn { width: 100%; padding: 15px; font-size: 16px; }
+  .dialog .btn { width: 100%; padding: 15px; font-size: 16px; margin-top: 8px; }
+
+  .confirm-name {
+    font-size: 19px;
+    font-weight: 800;
+    margin: 16px 0 6px;
+    word-break: break-word;
+  }
+  .confirm-warn {
+    background: var(--amber-bg);
+    border: 1.5px solid #f0d9a8;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    color: var(--amber);
+    margin-bottom: 10px;
+  }
 
   .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; max-height: 190px; overflow-y: auto; }
   .chip {
@@ -275,10 +292,17 @@
   <div class="dialog">
     <div class="d-emoji">🍱</div>
     <h3 id="dlgTitle">Who are you?</h3>
-    <p id="dlgHint">Enter your name — colleagues will see you're not eating today</p>
+    <p id="dlgHint">Pick your name from the list — colleagues will see you're not eating today</p>
     <div id="chips" class="chips"></div>
     <input id="nameInput" type="text" placeholder="Name" maxlength="40" autocomplete="name">
     <button class="btn primary" id="nameSubmit">Continue</button>
+
+    <div id="confirmStep" class="hidden">
+      <div class="confirm-name" id="confirmName"></div>
+      <div class="confirm-warn">⚠️ This name is <b>permanent</b> — you won't be able to change it later. This phone stays linked to this name.</div>
+      <button class="btn primary" id="confirmYes">Confirm — keep this name</button>
+      <button class="btn ghost" id="confirmNo">Go back</button>
+    </div>
   </div>
 </div>
 
@@ -314,7 +338,7 @@
 </div>
 
 <footer>
-  <span id="updatedPrefix">Updated</span> <span id="updatedAt">—</span> · <button id="refreshBtn" data-i18n="refresh">refresh</button> · <button id="changeNameBtn" data-i18n="changeName">change name</button>
+  <span id="updatedPrefix">Updated</span> <span id="updatedAt">—</span> · <button id="refreshBtn" data-i18n="refresh">refresh</button>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -335,7 +359,8 @@ const I18N = {
     freeEmpty: "No free meals — everyone's eating", claimedEmpty: "Nobody claimed anything yet",
     subSkipped: "not eating today", subClaimed: "claimed by",
     claimBtn: "I'll take it 🍽️", returnBtn: "Return",
-    myClaim: "You claimed", updatedPrefix: "Updated", refresh: "refresh", changeName: "change name",
+    myClaim: "You claimed", updatedPrefix: "Updated", refresh: "refresh",
+    confirmTitle: "Confirm your name",
     notifBtn: "🔔 Enable notifications", notifOn: "🔔 Notifications on",
     notifDenied: "Notifications blocked in browser — enable in settings",
     notifBlocked: "🔕 Notifications are blocked in browser settings. Allow them: lock icon → Permissions → Notifications → Allow",
@@ -371,7 +396,6 @@ function applyLang() {
   $('claimedEmptyTxt').textContent = t('claimedEmpty');
   $('updatedPrefix').textContent = t('updatedPrefix');
   $('refreshBtn').textContent = t('refresh');
-  $('changeNameBtn').textContent = t('changeName');
   renderNotifBtn();
   document.title = t('headTitle') + ' 🍱';
   if (state) render();
@@ -591,7 +615,6 @@ document.addEventListener('click', async (ev) => {
 });
 
 $('refreshBtn').addEventListener('click', load);
-$('changeNameBtn').addEventListener('click', () => showName(true));
 
 // === Web Push уведомления (автоматические) ===
 
@@ -739,7 +762,7 @@ $('notifBtn').addEventListener('click', async () => {
   }
 });
 
-// === ввод имени ===
+// === ввод имени (один телефон = одно имя, навсегда) ===
 
 // автокомплит: фильтруем штат (roster) + тех, кто уже пользовался
 function filterNames(q) {
@@ -768,20 +791,54 @@ function renderChips(q) {
     c.className = 'chip';
     c.textContent = n;
     if (n === me) c.classList.add('hl');
-    c.addEventListener('click', () => { me = n; saveMe(); hideName(); load(); autoEnablePush(); });
+    c.addEventListener('click', () => showConfirm(n));
     chips.appendChild(c);
   });
   chips.classList.toggle('hidden', !names.length);
 }
 
-function showName(force) {
-  $('nameOverlay').classList.remove('hidden');
+// Шаг 1: выбор имени
+function showName() {
+  $('confirmStep').classList.add('hidden');
+  $('chips').classList.remove('hidden');
+  $('nameInput').classList.remove('hidden');
+  $('nameSubmit').classList.remove('hidden');
+  $('dlgTitle').textContent = t('dlgTitle');
+  $('dlgHint').textContent = t('dlgHint');
   $('nameInput').value = me;
   renderChips('');
+  $('nameOverlay').classList.remove('hidden');
   setTimeout(() => $('nameInput').focus(), 50);
 }
+
+// Шаг 2: подтверждение — предупреждаем, что имя нельзя изменить
+function showConfirm(name) {
+  $('chips').classList.add('hidden');
+  $('nameInput').classList.add('hidden');
+  $('nameSubmit').classList.add('hidden');
+  $('confirmName').textContent = name;
+  $('dlgTitle').textContent = t('confirmTitle');
+  $('dlgHint').textContent = '';
+  $('confirmStep').classList.remove('hidden');
+}
+
 function hideName() { $('nameOverlay').classList.add('hidden'); }
 function saveMe() { localStorage.setItem('lunch_name', me); }
+
+// Закрепить имя на сервере — первый выбор навсегда
+async function lockName(name) {
+  try {
+    const r = await apiPost('/api/name', { name });
+    me = r.name; // сервер вернёт закреплённое имя (даже если телефон уже имел другое)
+    saveMe();
+  } catch (e) {
+    me = name;
+    saveMe();
+  }
+  hideName();
+  load();
+  autoEnablePush();
+}
 
 $('nameInput').addEventListener('input', () => renderChips($('nameInput').value));
 
@@ -790,20 +847,30 @@ $('nameSubmit').addEventListener('click', () => {
   if (!v) return toast(t('toastEnterName'));
   if (v.length > 40) return toast(t('toastTooLong'));
   if (!/^[\p{L}\p{N} \-'.]+$/u.test(v)) return toast(t('toastBadChars'));
-  me = v;
-  saveMe();
-  hideName();
-  load();
-  autoEnablePush();
+  showConfirm(v);
 });
 $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('nameSubmit').click(); });
+
+$('confirmYes').addEventListener('click', () => lockName($('confirmName').textContent));
+$('confirmNo').addEventListener('click', () => showName());
 
 // === старт ===
 (async () => {
   applyLang();
   await load();
-  if (!me) showName();
-  else autoEnablePush(); // имя уже есть — включаем уведомления сами
+  // телефон уже имеет закреплённое имя на сервере? используем его (не даём выбрать другое)
+  if (state?.me?.name) {
+    if (me !== state.me.name) { me = state.me.name; saveMe(); }
+    autoEnablePush();
+  } else if (me && state?.people?.includes(me)) {
+    // имя в localStorage и в списке — закрепляем за телефоном
+    await lockName(me);
+  } else if (!me) {
+    showName();
+  } else {
+    // имя в localStorage, но сервер его не знает — предлагаем подтвердить выбор
+    showName();
+  }
   setInterval(load, 15000); // автообновление
 
   // Автообновление PWA: если версия на сервере изменилась (новый деплой) —

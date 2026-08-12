@@ -87,6 +87,15 @@ db.exec(`
 db.prepare(`DELETE FROM people WHERE name NOT IN (${ROSTER.map(() => '?').join(',')})`)
   .run(...ROSTER);
 
+// Разовый сброс: RESET_DB=1 очищает все имена и отметки, чтобы все выбрали заново.
+// Сбрасывается только один раз (защита от повторного сброса при рестартах).
+const RESET_FLAG = path.join(path.dirname(DB_PATH), '.reset_done');
+if (process.env.RESET_DB === '1' && !fs.existsSync(RESET_FLAG)) {
+  db.exec(`DELETE FROM people; DELETE FROM skips;`);
+  fs.writeFileSync(RESET_FLAG, new Date().toISOString());
+  console.log('[reset] DB cleared — everyone picks a name again');
+}
+
 const app = express();
 app.use(express.json());
 // Статика: HTML/sw/manifest НЕ кэшировать (иначе PWA на главном экране не увидит обновления),
@@ -126,15 +135,17 @@ function sanitizeDevice(raw) {
   return d;
 }
 
-// Обновить отображаемое имя device (и во всех его записях за сегодня)
+// Обновить отображаемое имя device (и во всех его записях за сегодня).
+// Имя закрепляется ПЕРВЫМ выбором навсегда: один телефон = одно имя, менять нельзя.
 function syncName(device, name, date) {
-  db.prepare(`INSERT INTO people (device_id, name) VALUES (?, ?)
-              ON CONFLICT(device_id) DO UPDATE SET
-                name = excluded.name,
-                last_seen = datetime('now')`)
-    .run(device, name);
-  db.prepare(`UPDATE skips SET name = ? WHERE device_id = ? AND date = ?`)
-    .run(name, device, date);
+  const existing = db.prepare(`SELECT name FROM people WHERE device_id = ?`).get(device);
+  if (existing) {
+    db.prepare(`UPDATE people SET last_seen = datetime('now') WHERE device_id = ?`).run(device);
+    return existing.name; // имя уже закреплено — новое игнорируем
+  }
+  db.prepare(`INSERT INTO people (device_id, name) VALUES (?, ?)`).run(device, name);
+  db.prepare(`UPDATE skips SET name = ? WHERE device_id = ? AND date = ?`).run(name, device, date);
+  return name;
 }
 
 function getTodayState(device) {
@@ -143,11 +154,13 @@ function getTodayState(device) {
   const people = db.prepare(`SELECT DISTINCT name FROM people ORDER BY name COLLATE NOCASE`).all();
   let me = null;
   if (device) {
+    const myName = db.prepare(`SELECT name FROM people WHERE device_id = ?`).get(device);
     const mySkip = db.prepare(`SELECT name, claimed_by_name FROM skips WHERE date = ? AND device_id = ?`)
       .get(date, device);
     const myClaims = db.prepare(`SELECT name FROM skips WHERE date = ? AND claimed_by_device = ?`)
       .all(date, device);
     me = {
+      name: myName ? myName.name : null, // закреплённое имя телефона (первый выбор, навсегда)
       skip: mySkip ? { name: mySkip.name, claimed_by: mySkip.claimed_by_name || null } : null,
       claims: myClaims.map((c) => c.name),
     };
@@ -207,6 +220,16 @@ function notifyDevice(deviceId, title, body, url) {
 
 // === API ===
 
+// Закрепить имя за телефоном (первый выбор — навсегда; повторные вызовы возвращают прежнее имя)
+app.post('/api/name', (req, res) => {
+  const device = sanitizeDevice(req.body && req.body.device);
+  const name = sanitizeName(req.body && req.body.name);
+  if (!device || !name) return res.status(400).json({ error: 'invalid_params' });
+  const date = todayStr();
+  const locked = syncName(device, name, date);
+  res.json({ name: locked, locked: true });
+});
+
 // Версия приложения — клиент сравнивает и сам перезагружается при обновлении
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION });
@@ -225,9 +248,9 @@ app.post('/api/skip', (req, res) => {
   const name = sanitizeName(req.body && req.body.name);
   if (!device || !name) return res.status(400).json({ error: 'invalid_params' });
   const date = todayStr();
-  syncName(device, name, date);
+  const lockedName = syncName(device, name, date);
   db.prepare(`INSERT OR IGNORE INTO skips (date, device_id, name) VALUES (?, ?, ?)`)
-    .run(date, device, name);
+    .run(date, device, lockedName);
   res.json(getTodayState(device));
 });
 
@@ -269,10 +292,10 @@ app.post('/api/claim', (req, res) => {
   const cnt = db.prepare(`SELECT COUNT(*) AS c FROM skips WHERE date = ? AND claimed_by_device = ?`).get(date, device).c;
   if (cnt >= MAX_CLAIMS_PER_DAY) return res.status(409).json({ error: 'limit_reached' });
 
-  syncName(device, name, date);
+  const lockedName = syncName(device, name, date);
   const r = db.prepare(`UPDATE skips SET claimed_by_device = ?, claimed_by_name = ?
                         WHERE date = ? AND name = ? AND claimed_by_device IS NULL`)
-    .run(device, name, date, from);
+    .run(device, lockedName, date, from);
   if (r.changes === 0) return res.status(409).json({ error: 'already_claimed' });
 
   // пуш владельцу порции: её забрали
