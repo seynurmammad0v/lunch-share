@@ -356,6 +356,13 @@ $('langBtn').addEventListener('click', () => {
   applyLang();
 });
 
+// ===== идентификация: device (телефон) + имя =====
+let device = localStorage.getItem('lunch_device');
+if (!device) {
+  device = (crypto.randomUUID && crypto.randomUUID()) ||
+    'd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+  localStorage.setItem('lunch_device', device);
+}
 let me = localStorage.getItem('lunch_name') || '';
 let state = null;
 let myState = 'idle'; // idle | skipped-free | skipped-claimed
@@ -383,18 +390,35 @@ function toast(msg) {
   el._h = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-async function api(path, opts) {
-  const res = await fetch(path, opts);
+function apiUrl(path) {
+  const q = new URLSearchParams({ device });
+  if (me) q.set('name', me);
+  return `${path}?${q}`;
+}
+async function apiGet(path) {
+  const res = await fetch(apiUrl(path));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `HTTP ${res.status}`);
   }
   return res.json();
 }
+async function apiPost(path, body) {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device, ...body }),
+  });
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(b.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
 
 async function load() {
   try {
-    state = await api('/api/today');
+    state = await apiGet('/api/today');
     render();
   } catch (e) {
     toast(t('toastLoad'));
@@ -404,10 +428,12 @@ async function load() {
 function render() {
   $('dateLabel').textContent = fmtDate(state.date);
 
-  // моё состояние
-  const claimedBySomeone = state.claimed.find(c => c.name === me);
-  const mySkipFree = state.free.includes(me);
-  myState = claimedBySomeone ? 'skipped-claimed' : (mySkipFree ? 'skipped-free' : 'idle');
+  // моё состояние — сервер определяет по device, имя менять можно свободно
+  const mySkip = state.me && state.me.skip ? state.me.skip : null; // {name, claimed_by} | null
+  const myClaims = state.me ? (state.me.claims || []) : [];
+  myState = mySkip
+    ? (mySkip.claimed_by ? 'skipped-claimed' : 'skipped-free')
+    : 'idle';
 
   const btn = $('mainBtn');
   if (myState === 'idle') {
@@ -432,12 +458,10 @@ function render() {
   $('freeCount').textContent = state.free.length;
   $('claimedCount').textContent = state.claimed.length;
 
-  const myClaims = state.claimed.filter(c => c.by === me);
-
   for (const name of state.free) {
     const div = document.createElement('div');
     div.className = 'person';
-    const isMine = name === me;
+    const isMine = mySkip && mySkip.name === name; // своя порция — без кнопки
     div.innerHTML = `
       <div class="avatar" style="background:${avatarColor(name)}">${initials(name)}</div>
       <div class="info">
@@ -452,7 +476,7 @@ function render() {
   for (const c of state.claimed) {
     const div = document.createElement('div');
     div.className = 'person';
-    const mine = c.by === me;
+    const mine = myClaims.includes(c.name); // вернуть может только мой телефон
     div.innerHTML = `
       <div class="avatar" style="background:${avatarColor(c.name)}">${initials(c.name)}</div>
       <div class="info">
@@ -470,11 +494,11 @@ function render() {
     const banner = document.createElement('div');
     banner.className = 'my-claim';
     banner.id = 'myClaimBanner';
-    banner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
+    banner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
     $('banner').insertAdjacentElement('afterend', banner);
   } else if (myClaimBanner) {
     if (myClaims.length === 0) myClaimBanner.remove();
-    else myClaimBanner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.map(c => c.name).join(', '))}</b>`;
+    else myClaimBanner.innerHTML = `🍽️ ${t('myClaim')} <b>${escapeHtml(myClaims.join(', '))}</b>`;
   }
 
   $('updatedAt').textContent = new Date().toLocaleTimeString(lang === 'ru' ? 'ru-RU' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -495,10 +519,10 @@ $('mainBtn').addEventListener('click', async () => {
   }
   try {
     if (myState === 'skipped-free') {
-      await api('/api/unship', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: me }) });
+      await apiPost('/api/unship', { name: me });
       toast(t('toastUnmarked'));
     } else {
-      await api('/api/skip', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: me }) });
+      await apiPost('/api/skip', { name: me });
       toast(t('toastMarked'));
     }
     load();
@@ -512,11 +536,11 @@ document.addEventListener('click', async (ev) => {
   if (claimBtn) {
     const from = claimBtn.dataset.claim;
     try {
-      await api('/api/claim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ from, by: me }) });
+      await apiPost('/api/claim', { name: me, from });
       toast(`${t('toastClaimed')} ${from} 🎉`);
       load();
     } catch (e) {
-      toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : t('toastErr'));
+      toast(e.message === 'already_claimed' ? t('toastClaimedErr') : e.message === 'self_claim' ? t('toastSelfClaim') : e.message === 'no_skip' ? t('toastClaimedErr') : t('toastErr'));
     }
     return;
   }
@@ -524,7 +548,7 @@ document.addEventListener('click', async (ev) => {
   if (unclaimBtn) {
     const from = unclaimBtn.dataset.unclaim;
     try {
-      await api('/api/unclaim', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ from, by: me }) });
+      await apiPost('/api/unclaim', { from });
       toast(t('toastUnclaimed'));
       load();
     } catch (e) { toast(t('toastErr')); }
