@@ -416,6 +416,29 @@
     letter-spacing: .12em;
     text-transform: uppercase;
   }
+  footer button:disabled { opacity: .6; cursor: wait; }
+  /* терминальный спиннер на кнопке refresh */
+  .sync::after {
+    content: "/";
+    margin-left: 6px;
+    animation: termspin .5s steps(4) infinite;
+  }
+  @keyframes termspin {
+    0% { content: "/"; }
+    25% { content: "—"; }
+    50% { content: "\\"; }
+    75% { content: "|"; }
+  }
+  /* вспышка контента после обновления */
+  body.refreshing .card,
+  body.refreshing .stats,
+  body.refreshing .big-btn {
+    animation: contentflash .45s ease;
+  }
+  @keyframes contentflash {
+    0% { background-color: rgba(230,25,25,.14); }
+    100% { background-color: transparent; }
+  }
   .toast {
     position: fixed; left: 50%; bottom: 24px;
     transform: translateX(-50%);
@@ -793,7 +816,21 @@ document.addEventListener('click', async (ev) => {
   }
 });
 
-$('refreshBtn').addEventListener('click', load);
+$('refreshBtn').addEventListener('click', async () => {
+  const btn = $('refreshBtn');
+  btn.disabled = true;
+  btn.classList.add('sync');
+  btn.textContent = 'SYNC';
+  document.body.classList.add('refreshing');
+  await load();
+  // даём анимации вспышки отыграть, потом возвращаем кнопку
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.classList.remove('sync');
+    btn.textContent = t('refresh');
+    document.body.classList.remove('refreshing');
+  }, 500);
+});
 
 // === Web Push уведомления (автоматические) ===
 
