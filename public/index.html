@@ -409,12 +409,25 @@ function applyLang() {
 }
 
 // ===== идентификация: device (телефон) + имя =====
+// Device живёт в URL (?d=...), чтобы PWA на главном экране (у которого ОТДЕЛЬНОЕ хранилище
+// от Safari) видел тот же телефон и то же имя. Add to Home Screen сохраняет текущий URL.
 let device = localStorage.getItem('lunch_device');
+if (!device) {
+  const urlDev = new URLSearchParams(location.search).get('d');
+  if (urlDev && /^[0-9a-zA-Z\-]+$/.test(urlDev)) device = urlDev;
+}
 if (!device) {
   device = (crypto.randomUUID && crypto.randomUUID()) ||
     'd-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
-  localStorage.setItem('lunch_device', device);
 }
+localStorage.setItem('lunch_device', device);
+try {
+  const u = new URL(location.href);
+  if (u.searchParams.get('d') !== device) {
+    u.searchParams.set('d', device);
+    history.replaceState(null, '', u); // пишем device в адрес без перезагрузки
+  }
+} catch (e) {}
 let me = localStorage.getItem('lunch_name') || '';
 let state = null;
 let myState = 'idle'; // idle | skipped-free | skipped-claimed
@@ -478,7 +491,8 @@ async function load() {
 
 function render() {
   $('dateLabel').textContent = fmtDate(state.date);
-  $('welcome').textContent = me ? `Welcome, ${me}! 👋` : 'Welcome! 👋';
+  const shownName = me || (state.me && state.me.name) || '';
+  $('welcome').textContent = shownName ? `Welcome, ${shownName}! 👋` : 'Welcome! 👋';
 
   // моё состояние — сервер определяет по device, имя менять можно свободно
   const mySkip = state.me && state.me.skip ? state.me.skip : null; // {name, claimed_by} | null
