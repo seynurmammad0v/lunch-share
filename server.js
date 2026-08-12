@@ -8,6 +8,9 @@ const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lunch.db');
 const TIMEZONE = process.env.TZ || 'Asia/Baku';
 const MAX_CLAIMS_PER_DAY = 2; // лимит: сколько порций можно забрать в день
+// Ежедневное напоминание: 12:00 по TZ, только пн–пт (переопределяется для тестов)
+const REMINDER_HOUR = parseInt(process.env.REMINDER_HOUR || '12', 10);
+const REMINDER_MINUTE = parseInt(process.env.REMINDER_MINUTE || '0', 10);
 
 // Штат компании — для автокомплита имени (только имя + фамилия)
 // Два «Farid Mammadov» различаются по роли
@@ -67,7 +70,12 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS subs (
     device_id  TEXT PRIMARY KEY,
     sub        TEXT NOT NULL,
+    lang       TEXT NOT NULL DEFAULT 'en',
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS reminders (
+    date     TEXT PRIMARY KEY,
+    sent_at  TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
@@ -154,10 +162,11 @@ app.get('/api/vapid-public', (req, res) => {
 app.post('/api/subscribe', (req, res) => {
   const device = sanitizeDevice(req.body && req.body.device);
   const sub = req.body && req.body.subscription;
+  const lang = (req.body && req.body.lang === 'ru') ? 'ru' : 'en';
   if (!device || !sub || !sub.endpoint) return res.status(400).json({ error: 'invalid_params' });
-  db.prepare(`INSERT INTO subs (device_id, sub) VALUES (?, ?)
-              ON CONFLICT(device_id) DO UPDATE SET sub = excluded.sub, updated_at = datetime('now')`)
-    .run(device, JSON.stringify(sub));
+  db.prepare(`INSERT INTO subs (device_id, sub, lang) VALUES (?, ?, ?)
+              ON CONFLICT(device_id) DO UPDATE SET sub = excluded.sub, lang = excluded.lang, updated_at = datetime('now')`)
+    .run(device, JSON.stringify(sub), lang);
   res.json({ ok: true });
 });
 
@@ -271,6 +280,44 @@ app.post('/api/unclaim', (req, res) => {
   res.json(getTodayState(device));
 });
 
+// === Ежедневное напоминание: пн–пт в 12:00 (TZ) ===
+
+function tzParts(date) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIMEZONE, weekday: 'short', hour: '2-digit', minute: '2-digit',
+  }).formatToParts(date);
+  const get = (t) => parts.find((p) => p.type === t)?.value;
+  return { weekday: get('weekday'), hour: parseInt(get('hour'), 10), minute: parseInt(get('minute'), 10) };
+}
+
+function sendDailyReminder() {
+  const now = new Date();
+  const { weekday, hour, minute } = tzParts(now);
+  const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday);
+  const isTime = hour === REMINDER_HOUR && minute === REMINDER_MINUTE;
+  if (!isWeekday || !isTime) return;
+
+  const date = todayStr();
+  const ins = db.prepare(`INSERT OR IGNORE INTO reminders (date) VALUES (?)`).run(date);
+  if (ins.changes === 0) return; // уже отправлено сегодня
+
+  const subs = db.prepare(`SELECT device_id, lang FROM subs`).all();
+  let sent = 0;
+  for (const s of subs) {
+    const title = s.lang === 'ru' ? '🍱 Обед' : '🍱 Lunch';
+    const body = s.lang === 'ru'
+      ? `Не забудь отдать свою порцию — если не обедаешь сегодня, отметься!`
+      : `Don't forget to give your meal away — if you're not eating today, mark it!`;
+    notifyDevice(s.device_id, title, body);
+    sent++;
+  }
+  console.log(`[reminder] ${date} ${hour}:${minute} sent to ${sent} subscriber(s)`);
+}
+
+// проверяем каждые 30 секунд
+setInterval(sendDailyReminder, 30 * 1000);
+sendDailyReminder(); // при старте (на случай, если подняли ровно в 12:00)
+
 app.listen(PORT, () => {
-  console.log(`lunch-share listening on :${PORT} (TZ=${TIMEZONE})`);
+  console.log(`lunch-share listening on :${PORT} (TZ=${TIMEZONE}, reminder ${REMINDER_HOUR}:${String(REMINDER_MINUTE).padStart(2, '0')} Mon-Fri)`);
 });

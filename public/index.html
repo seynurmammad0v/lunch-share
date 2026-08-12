@@ -70,8 +70,16 @@
     font-size: 14.5px;
     line-height: 1.45;
     color: #1c4e7c;
+    text-align: center;
   }
   .ios-banner b { color: #1c4e7c; }
+  .ios-guide {
+    display: block;
+    width: 140px;
+    margin: 0 auto 10px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(28,78,124,.15);
+  }
 
   .card {
     background: var(--card);
@@ -299,6 +307,7 @@
 </div>
 
 <div class="ios-banner hidden" id="iosBanner">
+  <img src="/ios-guide.svg" alt="Share button at the bottom of Safari" class="ios-guide">
   <b id="iosTitle">📱 Enable notifications on iPhone:</b>
   <span id="iosBody">tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.</span>
 </div>
@@ -702,7 +711,7 @@ async function subscribePush(silent) {
     await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device, subscription: sub.toJSON() }),
+      body: JSON.stringify({ device, lang, subscription: sub.toJSON() }),
     });
     pushSubscribed = true;
     localStorage.setItem('lunch_push', '1');
