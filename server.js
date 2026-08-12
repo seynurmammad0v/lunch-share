@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
+const webpush = require('web-push');
 
 const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lunch.db');
@@ -25,6 +26,18 @@ const ROSTER = [
 ];
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
+// VAPID-ключи для Web Push — генерируются один раз и хранятся рядом с БД (переживают рестарты)
+const VAPID_PATH = path.join(path.dirname(DB_PATH), 'vapid.json');
+let vapidKeys;
+try {
+  vapidKeys = JSON.parse(fs.readFileSync(VAPID_PATH, 'utf8'));
+} catch {
+  vapidKeys = webpush.generateVAPIDKeys();
+  fs.writeFileSync(VAPID_PATH, JSON.stringify(vapidKeys, null, 2));
+}
+webpush.setVapidDetails('mailto:lunch-share@example.com', vapidKeys.publicKey, vapidKeys.privateKey);
+const PUSH_ENABLED = process.env.PUSH_ENABLED !== '0';
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -50,6 +63,11 @@ db.exec(`
     claimed_by_name    TEXT,
     created_at         TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (date, device_id)
+  );
+  CREATE TABLE IF NOT EXISTS subs (
+    device_id  TEXT PRIMARY KEY,
+    sub        TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
 
@@ -125,6 +143,47 @@ function getTodayState(device) {
   };
 }
 
+// === Web Push ===
+
+// Публичный VAPID-ключ — клиент подписывается на пуши
+app.get('/api/vapid-public', (req, res) => {
+  res.json({ key: vapidKeys.publicKey });
+});
+
+// Сохранить подписку устройства
+app.post('/api/subscribe', (req, res) => {
+  const device = sanitizeDevice(req.body && req.body.device);
+  const sub = req.body && req.body.subscription;
+  if (!device || !sub || !sub.endpoint) return res.status(400).json({ error: 'invalid_params' });
+  db.prepare(`INSERT INTO subs (device_id, sub) VALUES (?, ?)
+              ON CONFLICT(device_id) DO UPDATE SET sub = excluded.sub, updated_at = datetime('now')`)
+    .run(device, JSON.stringify(sub));
+  res.json({ ok: true });
+});
+
+// Удалить подписку устройства
+app.post('/api/unsubscribe', (req, res) => {
+  const device = sanitizeDevice(req.body && req.body.device);
+  if (!device) return res.status(400).json({ error: 'invalid_params' });
+  db.prepare(`DELETE FROM subs WHERE device_id = ?`).run(device);
+  res.json({ ok: true });
+});
+
+// Отправить пуш устройству; невалидные подписки удаляются
+function notifyDevice(deviceId, title, body, url) {
+  if (!PUSH_ENABLED || !deviceId) return;
+  const row = db.prepare(`SELECT sub FROM subs WHERE device_id = ?`).get(deviceId);
+  if (!row) return;
+  let sub;
+  try { sub = JSON.parse(row.sub); } catch { return; }
+  webpush.sendNotification(sub, JSON.stringify({ title, body, url: url || '/' }))
+    .catch((err) => {
+      if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+        db.prepare(`DELETE FROM subs WHERE device_id = ?`).run(deviceId); // подписка устарела
+      }
+    });
+}
+
 // === API ===
 
 // Состояние на сегодня (+ me по device).
@@ -189,6 +248,9 @@ app.post('/api/claim', (req, res) => {
                         WHERE date = ? AND name = ? AND claimed_by_device IS NULL`)
     .run(device, name, date, from);
   if (r.changes === 0) return res.status(409).json({ error: 'already_claimed' });
+
+  // пуш владельцу порции: её забрали
+  notifyDevice(owner.device_id, '🍱 Lunch share', `${name} took your meal — it won't go to waste!`);
   res.json(getTodayState(device));
 });
 
@@ -198,9 +260,14 @@ app.post('/api/unclaim', (req, res) => {
   const from = sanitizeName(req.body && req.body.from);
   if (!device || !from) return res.status(400).json({ error: 'invalid_params' });
   const date = todayStr();
-  db.prepare(`UPDATE skips SET claimed_by_device = NULL, claimed_by_name = NULL
+  const r = db.prepare(`UPDATE skips SET claimed_by_device = NULL, claimed_by_name = NULL
               WHERE date = ? AND name = ? AND claimed_by_device = ?`)
     .run(date, from, device);
+  if (r.changes > 0) {
+    // пуш владельцу порции: она снова свободна
+    const owner = db.prepare(`SELECT device_id FROM skips WHERE date = ? AND name = ?`).get(date, from);
+    if (owner) notifyDevice(owner.device_id, '🍱 Lunch share', `Your meal is available again — anyone can take it.`);
+  }
   res.json(getTodayState(device));
 });
 
