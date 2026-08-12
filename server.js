@@ -7,6 +7,20 @@ const PORT = process.env.PORT || 3000;
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lunch.db');
 const TIMEZONE = process.env.TZ || 'Asia/Baku';
 
+// Штат компании — для автокомплита имени (только имя + фамилия)
+const ROSTER = [
+  'Fuad Karimov','Gulnar Masumova','Aytaj Abdullayeva','Nikita Yudin','Nigar Humbatova',
+  'Gunel Talibova','Gunay Eminova','Farid Mammadov','Orkhan Taghizade','Seynur Mammadov',
+  'Ali Guliyev','Vusala Alakbarova','Samir Gakhramanov','Mirzakhan Aliyev','Rustam Ahmadov',
+  'Afgan Mustafayev','Orkhan Huseynli','Shamil Omarov','Agil Atakishiyev','Maksim Vasilyev',
+  'Rauf Aliyev','Vusal Shahbazov','Eljan Mahmudov','Orkhan Mamedov','Mehdi Asadli',
+  'Khanim Pashayeva','Nazrin Khalilova','Alekper Aliev','Ruslan Aliiev','Jeyhun Jeyhunzade',
+  'Elnur Khalilov','Habil Abiyev','Pervin Pashazade','Mansur Mustafayev','Ibrahim Ismayilov',
+  'Martin Li','Arif Ahmadli','Sanam Ganbarova','Oruj Ahmadov','Ruslan Bayramov',
+  'Fakhri Jafarov','Emil Gambarli','Eldaniz Abdullayev','Rufat Guliyev','Murad Ganiyev',
+  'Fatima Hasanova','Enver Isayev','Sayyid Talishinskiy','Rasif Hatamkhanov',
+];
+
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
@@ -92,6 +106,7 @@ function getTodayState(device) {
     free: skips.filter((s) => !s.claimed_by_name).map((s) => s.name),
     claimed: skips.filter((s) => s.claimed_by_name).map((s) => ({ name: s.name, by: s.claimed_by_name })),
     people: people.map((p) => p.name),
+    roster: ROSTER,
     me,
   };
 }

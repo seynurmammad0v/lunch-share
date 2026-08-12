@@ -193,7 +193,7 @@
   .dialog input:focus { border-color: var(--accent); }
   .dialog .btn { width: 100%; padding: 15px; font-size: 16px; }
 
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; max-height: 190px; overflow-y: auto; }
   .chip {
     background: var(--bg);
     border: 1.5px solid #e2ddd4;
@@ -205,6 +205,7 @@
     color: var(--ink);
   }
   .chip:active { background: #eee9e0; }
+  .chip.hl { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   footer {
     text-align: center;
@@ -287,7 +288,7 @@ const AVATAR_COLORS = ['#e8562a','#1a9c5b','#2f6fed','#9b51e0','#d64545','#0e9aa
 // ===== i18n =====
 const I18N = {
   en: {
-    dlgTitle: "Who are you?", dlgHint: "Enter your name — colleagues will see you're not eating today",
+    dlgTitle: "Who are you?", dlgHint: "Pick your name from the list — colleagues will see you're not eating today",
     namePlaceholder: "Name", continueBtn: "Continue", headTitle: "Who's not eating",
     howTitle: "How it works:", howBody: "mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉",
     mainIdle: "🚫 I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
@@ -307,7 +308,7 @@ const I18N = {
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
   },
   ru: {
-    dlgTitle: "Кто ты?", dlgHint: "Введи имя — так коллеги увидят, что ты сегодня не обедаешь",
+    dlgTitle: "Кто ты?", dlgHint: "Выбери своё имя из списка — так коллеги увидят, что ты сегодня не обедаешь",
     namePlaceholder: "Имя", continueBtn: "Продолжить", headTitle: "Кто не обедает",
     howTitle: "Как работает:", howBody: "каждый день отмечайся, если не будешь обедать в офисе — твою порцию сможет забрать любой, кто голоден. Порция не пропадёт 😉",
     mainIdle: "🚫 Я сегодня не обедаю", mainIdleSub: "нажми, если не будешь есть — порция достанется другому",
@@ -561,24 +562,49 @@ $('changeNameBtn').addEventListener('click', () => showName(true));
 
 // === ввод имени ===
 
-function showName(force) {
-  $('nameOverlay').classList.remove('hidden');
-  $('nameInput').value = me;
+// автокомплит: фильтруем штат (roster) + тех, кто уже пользовался
+function filterNames(q) {
+  const all = new Set([...(state?.roster || []), ...(state?.people || [])]);
+  const query = (q || '').trim().toLowerCase();
+  let names = [...all];
+  if (query) {
+    names = names.filter(n => n.toLowerCase().includes(query));
+    names.sort((a, b) => {
+      const as = a.toLowerCase().startsWith(query) ? 0 : 1;
+      const bs = b.toLowerCase().startsWith(query) ? 0 : 1;
+      return as - bs || a.localeCompare(b);
+    });
+  } else {
+    names.sort((a, b) => a.localeCompare(b));
+  }
+  return names.slice(0, 40);
+}
+
+function renderChips(q) {
   const chips = $('chips');
   chips.innerHTML = '';
-  const known = (state?.people || []).filter(n => n !== me).slice(0, 8);
-  known.forEach(n => {
+  const names = filterNames(q);
+  names.forEach(n => {
     const c = document.createElement('button');
     c.className = 'chip';
     c.textContent = n;
+    if (n === me) c.classList.add('hl');
     c.addEventListener('click', () => { me = n; saveMe(); hideName(); load(); });
     chips.appendChild(c);
   });
-  chips.classList.toggle('hidden', !known.length);
+  chips.classList.toggle('hidden', !names.length);
+}
+
+function showName(force) {
+  $('nameOverlay').classList.remove('hidden');
+  $('nameInput').value = me;
+  renderChips('');
   setTimeout(() => $('nameInput').focus(), 50);
 }
 function hideName() { $('nameOverlay').classList.add('hidden'); }
 function saveMe() { localStorage.setItem('lunch_name', me); }
+
+$('nameInput').addEventListener('input', () => renderChips($('nameInput').value));
 
 $('nameSubmit').addEventListener('click', () => {
   const v = $('nameInput').value.trim().replace(/\s+/g, ' ');
