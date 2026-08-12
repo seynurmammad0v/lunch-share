@@ -8,9 +8,10 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data', 'lunch.db');
 const TIMEZONE = process.env.TZ || 'Asia/Baku';
 
 // Штат компании — для автокомплита имени (только имя + фамилия)
+// Два «Farid Mammadov» различаются по роли
 const ROSTER = [
   'Fuad Karimov','Gulnar Masumova','Aytaj Abdullayeva','Nikita Yudin','Nigar Humbatova',
-  'Gunel Talibova','Gunay Eminova','Farid Mammadov','Orkhan Taghizade','Seynur Mammadov',
+  'Gunel Talibova','Gunay Eminova','Farid Mammadov (BA)','Orkhan Taghizade','Seynur Mammadov',
   'Ali Guliyev','Vusala Alakbarova','Samir Gakhramanov','Mirzakhan Aliyev','Rustam Ahmadov',
   'Afgan Mustafayev','Orkhan Huseynli','Shamil Omarov','Agil Atakishiyev','Maksim Vasilyev',
   'Rauf Aliyev','Vusal Shahbazov','Eljan Mahmudov','Orkhan Mamedov','Mehdi Asadli',
@@ -19,17 +20,22 @@ const ROSTER = [
   'Martin Li','Arif Ahmadli','Sanam Ganbarova','Oruj Ahmadov','Ruslan Bayramov',
   'Fakhri Jafarov','Emil Gambarli','Eldaniz Abdullayev','Rufat Guliyev','Murad Ganiyev',
   'Fatima Hasanova','Enver Isayev','Sayyid Talishinskiy','Rasif Hatamkhanov',
+  'Farid Mammadov (Backend)',
 ];
 
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
-// Идентификация по device_id (телефону), имя — только отображаемое.
-// Старые тестовые таблицы (идентификация по имени) сбрасываются.
+
+// Миграция схемы: идентификация по device_id (телефону), имя — только отображаемое.
+// Если таблица ещё старой схемы (по имени) — пересоздаём один раз; иначе сохраняем данные.
+const skipCols = db.prepare(`PRAGMA table_info(skips)`).all();
+const hasDeviceCol = skipCols.some((c) => c.name === 'device_id');
+if (skipCols.length > 0 && !hasDeviceCol) {
+  db.exec(`DROP TABLE IF EXISTS skips; DROP TABLE IF EXISTS people;`);
+}
 db.exec(`
-  DROP TABLE IF EXISTS skips;
-  DROP TABLE IF EXISTS people;
   CREATE TABLE IF NOT EXISTS people (
     device_id TEXT PRIMARY KEY,
     name      TEXT NOT NULL,
@@ -45,6 +51,12 @@ db.exec(`
     PRIMARY KEY (date, device_id)
   );
 `);
+
+// Очистка: удаляем мусорные имена из people (созданные GET-проверками и т.п.) —
+// оставляем только тех, кто реально есть в штате (roster).
+// Мусор = имена не из roster. Свои (не из штата) люди добавятся заново при первом действии.
+db.prepare(`DELETE FROM people WHERE name NOT IN (${ROSTER.map(() => '?').join(',')})`)
+  .run(...ROSTER);
 
 const app = express();
 app.use(express.json());
@@ -113,12 +125,10 @@ function getTodayState(device) {
 
 // === API ===
 
-// Состояние на сегодня (+ me по device)
+// Состояние на сегодня (+ me по device).
+// ВАЖНО: GET не создаёт записи в people — иначе мусорные имена (проверки, боты) попадают в базу.
 app.get('/api/today', (req, res) => {
   const device = sanitizeDevice(req.query.device);
-  const name = sanitizeName(req.query.name);
-  const date = todayStr();
-  if (device && name) syncName(device, name, date); // смена имени с этого телефона
   res.json(getTodayState(device));
 });
 
