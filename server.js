@@ -11,6 +11,8 @@ const MAX_CLAIMS_PER_DAY = 2; // лимит: сколько порций мож�
 // Ежедневное напоминание: 12:00 по TZ, только пн–пт (переопределяется для тестов)
 const REMINDER_HOUR = parseInt(process.env.REMINDER_HOUR || '12', 10);
 const REMINDER_MINUTE = parseInt(process.env.REMINDER_MINUTE || '0', 10);
+// Версия приложения: меняется при каждом деплое → клиент сам обновляется (PWA на главном экране)
+const APP_VERSION = process.env.APP_VERSION || String(Date.now().toString(36));
 
 // Штат компании — для автокомплита имени (только имя + фамилия)
 // Два «Farid Mammadov» различаются по роли
@@ -204,6 +206,11 @@ function notifyDevice(deviceId, title, body, url) {
 }
 
 // === API ===
+
+// Версия приложения — клиент сравнивает и сам перезагружается при обновлении
+app.get('/api/version', (req, res) => {
+  res.json({ version: APP_VERSION });
+});
 
 // Состояние на сегодня (+ me по device).
 // ВАЖНО: GET не создаёт записи в people — иначе мусорные имена (проверки, боты) попадают в базу.

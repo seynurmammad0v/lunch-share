@@ -781,6 +781,19 @@ $('nameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('na
   if (!me) showName();
   else autoEnablePush(); // имя уже есть — включаем уведомления сами
   setInterval(load, 15000); // автообновление
+
+  // Автообновление PWA: если версия на сервере изменилась (новый деплой) —
+  // перезагружаем страницу, чтобы не застрять на старой версии (iOS home screen).
+  try {
+    const r = await fetch('/api/version').then(r => r.json());
+    const stored = localStorage.getItem('lunch_version');
+    if (stored && stored !== r.version) {
+      localStorage.setItem('lunch_version', r.version);
+      location.reload(); // подтягиваем свежую версию
+    } else {
+      localStorage.setItem('lunch_version', r.version);
+    }
+  } catch (e) { /* офлайн или нет сети — пропускаем */ }
 })();
 </script>
 </body>
