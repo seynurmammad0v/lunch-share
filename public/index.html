@@ -54,6 +54,15 @@
   }
   .banner b { color: var(--accent-dark); }
 
+  .welcome {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 14px;
+    letter-spacing: -.01em;
+  }
+
   .card {
     background: var(--card);
     border-radius: var(--radius);
@@ -279,12 +288,10 @@
   <div class="date" id="dateLabel"></div>
 </header>
 
+<div class="welcome" id="welcome">Welcome! 👋</div>
+
 <div class="notif-top hidden" id="notifTop">
   <button id="notifBtn" class="notif-btn">🔔 Enable notifications</button>
-</div>
-
-<div class="banner" id="banner">
-  <b id="howTitle">How it works:</b> <span id="howBody">mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉</span>
 </div>
 
 <div class="card">
@@ -321,7 +328,6 @@ const I18N = {
   en: {
     dlgTitle: "Who are you?", dlgHint: "Pick your name from the list — colleagues will see you're not eating today",
     namePlaceholder: "Name", continueBtn: "Continue", headTitle: "Who's not eating",
-    howTitle: "How it works:", howBody: "mark yourself each day if you won't eat in the office — anyone hungry can claim your meal. Nothing goes to waste 😉",
     mainIdle: "🚫 I'm not eating today", mainIdleSub: "tap if you won't eat — your meal goes to someone else",
     mainSkipped: "✅ Marked: not eating", mainSkippedSub: "tap to cancel (if you changed your mind)",
     mainClaimed: "🍽️ Your meal was claimed", mainClaimedSub: "you can't cancel — ask who took it to return it",
@@ -358,8 +364,6 @@ function applyLang() {
   $('nameInput').placeholder = t('namePlaceholder');
   $('nameSubmit').textContent = t('continueBtn');
   $('headTitle').textContent = t('headTitle');
-  $('howTitle').textContent = t('howTitle');
-  $('howBody').textContent = t('howBody');
   $('freeTitle').textContent = t('freeTitle');
   $('claimedTitle').textContent = t('claimedTitle');
   $('freeEmptyTxt').textContent = t('freeEmpty');
@@ -442,6 +446,7 @@ async function load() {
 
 function render() {
   $('dateLabel').textContent = fmtDate(state.date);
+  $('welcome').textContent = me ? `Welcome, ${me}! 👋` : 'Welcome! 👋';
 
   // моё состояние — сервер определяет по device, имя менять можно свободно
   const mySkip = state.me && state.me.skip ? state.me.skip : null; // {name, claimed_by} | null
