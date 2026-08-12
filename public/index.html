@@ -350,6 +350,9 @@ const I18N = {
     notifBtn: "🔔 Enable notifications", notifOn: "🔔 Notifications on",
     notifDenied: "Notifications blocked in browser — enable in settings",
     notifUnsupported: "Notifications not supported on this device",
+    notifOpenBrowser: "📲 Open in Safari/Chrome — notifications don't work inside apps (Telegram etc.)",
+    notifIos: "📱 iPhone: Share → Add to Home Screen, then open Lunch from home screen",
+    notifIosOld: "📱 iPhone: needs iOS 16.4+ — update your iPhone, then Share → Add to Home Screen",
     iosTitle: "📱 Enable notifications on iPhone:", iosBody: "tap Share → Add to Home Screen, then open Lunch from your home screen — notifications turn on automatically.",
     toastMarked: "Marked! Your meal is now available", toastUnmarked: "Mark removed — you're eating again",
     toastClaimed: "You claimed", toastClaimedErr: "Already taken!", toastSelfClaim: "You can't claim your own meal 😄",
@@ -376,6 +379,9 @@ const I18N = {
     notifBtn: "🔔 Включить уведомления", notifOn: "🔔 Уведомления включены",
     notifDenied: "Уведомления заблокированы в браузере — включи в настройках",
     notifUnsupported: "Уведомления не поддерживаются на этом устройстве",
+    notifOpenBrowser: "📲 Открой в Safari/Chrome — внутри приложений (Telegram и др.) уведомления не работают",
+    notifIos: "📱 iPhone: Share → Add to Home Screen, затем открой Обед с главного экрана",
+    notifIosOld: "📱 iPhone: нужен iOS 16.4+ — обнови iPhone, затем Share → Add to Home Screen",
     iosTitle: "📱 Включи уведомления на iPhone:", iosBody: "нажми Share → Add to Home Screen, затем открой Обед с главного экрана — уведомления включатся сами.",
     toastMarked: "Отмечено! Твоя порция теперь свободна", toastUnmarked: "Отметка снята — ты снова обедаешь",
     toastClaimed: "Ты забрал порцию", toastClaimedErr: "Уже разобрали!", toastSelfClaim: "Свою порцию забирать не надо 😄",
@@ -650,6 +656,10 @@ function isIOS() {
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
+// встроенный браузер приложения (Telegram, Instagram, FB и т.п.) — push там не работает
+function isInAppBrowser() {
+  return /Telegram|FBAN|FBAV|Instagram|MicroMessenger|Line\/|Twitter|Snapchat|Kakaotalk|WhatsApp/i.test(navigator.userAgent);
+}
 
 let pushSubscribed = localStorage.getItem('lunch_push') === '1';
 let pushAsked = localStorage.getItem('lunch_push_asked') === '1';
@@ -658,8 +668,16 @@ function renderNotifBtn() {
   const btn = $('notifBtn');
   const supported = 'serviceWorker' in navigator && 'PushManager' in window;
   if (!supported) {
-    btn.textContent = t('notifUnsupported');
-    btn.disabled = true;
+    btn.disabled = false;
+    btn.classList.remove('on');
+    if (isIOS()) {
+      // iPhone Safari без PushManager = iOS < 16.4 (Apple добавила web push только в 16.4)
+      btn.textContent = t('notifIosOld');
+    } else if (isInAppBrowser()) {
+      btn.textContent = t('notifOpenBrowser'); // внутри Telegram и т.п. — подсказка, а не «не поддерживается»
+    } else {
+      btn.textContent = t('notifUnsupported');
+    }
     return;
   }
   btn.disabled = false;
@@ -729,6 +747,13 @@ $('notifBtn').addEventListener('click', async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device }),
     }).catch(() => {});
+    return;
+  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    // нет поддержки push — объясняем, что делать
+    if (isIOS()) toast(t('notifIosOld'));
+    else if (isInAppBrowser()) toast(t('notifOpenBrowser'));
+    else toast(t('notifUnsupported'));
     return;
   }
   if (isIOS() && !isStandalone()) {
