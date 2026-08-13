@@ -46,6 +46,7 @@ const PUSH_ENABLED = process.env.PUSH_ENABLED !== '0';
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
+console.log(`[db] path=${DB_PATH} exists=${fs.existsSync(DB_PATH)} size=${fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size : 0}`);
 
 // Миграция схемы: идентификация по device_id (телефону), имя — только отображаемое.
 // Если таблица ещё старой схемы (по имени) — пересоздаём один раз; иначе сохраняем данные.
