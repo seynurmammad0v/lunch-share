@@ -265,6 +265,22 @@ app.post('/api/admin/free-name', (req, res) => {
   res.json({ ok: true, removed: r.changes, name });
 });
 
+// Тестовый пуш: отправить уведомление всем активным подписчикам (для проверки)
+app.post('/api/admin/test-push', async (req, res) => {
+  if (!adminAuth(req)) return res.status(401).json({ error: 'unauthorized' });
+  const title = (req.body && req.body.title) || 'Lunch Tracker';
+  const body = (req.body && req.body.body) || 'Test notification — push is working!';
+  const subs = db.prepare(`SELECT device_id FROM subs`).all();
+  let ok = 0, failed = 0, errors = [];
+  for (const s of subs) {
+    try {
+      const r = await notifyDevice(s.device_id, title, body, '/');
+      if (r && r.ok) ok++; else { failed++; errors.push(s.device_id.slice(0, 8) + ': ' + (r && r.failed)); }
+    } catch (e) { failed++; errors.push(s.device_id.slice(0, 8) + ': ' + e.message); }
+  }
+  res.json({ total: subs.length, ok, failed, errors, title, body });
+});
+
 // Закрепить имя за телефоном (первый выбор — навсегда; имя уникально для всех)
 app.post('/api/name', (req, res) => {
   const device = sanitizeDevice(req.body && req.body.device);
