@@ -232,6 +232,38 @@ function notifyDevice(deviceId, title, body, url) {
 
 // === API ===
 
+// Админ-эндпоинты (бэкап/дамп/освобождение имени) — только с секретом
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
+function adminAuth(req) {
+  const t = req.get('x-admin-token');
+  return ADMIN_TOKEN && t === ADMIN_TOKEN;
+}
+
+// Бэкап: скачать копию базы целиком
+app.get('/api/admin/backup', (req, res) => {
+  if (!adminAuth(req)) return res.status(401).json({ error: 'unauthorized' });
+  db.pragma('wal_checkpoint(TRUNCATE)');
+  res.download(DB_PATH, `lunch-backup-${todayStr()}.db`);
+});
+
+// Дамп: кто занял какое имя, отметки сегодня, подписки (без деталей)
+app.get('/api/admin/dump', (req, res) => {
+  if (!adminAuth(req)) return res.status(401).json({ error: 'unauthorized' });
+  const people = db.prepare(`SELECT device_id, name, last_seen FROM people ORDER BY name`).all();
+  const skipsToday = db.prepare(`SELECT date, device_id, name, claimed_by_name FROM skips WHERE date = ? ORDER BY name`).all(todayStr());
+  const subs = db.prepare(`SELECT device_id, lang, updated_at FROM subs`).all();
+  res.json({ date: todayStr(), people, skipsToday, subs });
+});
+
+// Освободить имя: удалить только записи people с этим именем (skips/subscriptions не трогаем)
+app.post('/api/admin/free-name', (req, res) => {
+  if (!adminAuth(req)) return res.status(401).json({ error: 'unauthorized' });
+  const name = sanitizeName(req.body && req.body.name);
+  if (!name) return res.status(400).json({ error: 'invalid_params' });
+  const r = db.prepare(`DELETE FROM people WHERE name = ? COLLATE NOCASE`).run(name);
+  res.json({ ok: true, removed: r.changes, name });
+});
+
 // Закрепить имя за телефоном (первый выбор — навсегда; имя уникально для всех)
 app.post('/api/name', (req, res) => {
   const device = sanitizeDevice(req.body && req.body.device);
