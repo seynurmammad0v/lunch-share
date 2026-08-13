@@ -204,18 +204,29 @@ app.post('/api/unsubscribe', (req, res) => {
   res.json({ ok: true });
 });
 
-// Отправить пуш устройству; невалидные подписки удаляются
+// Отправить пуш устройству; невалидные подписки удаляются.
+// Возвращает Promise с результатом: { ok } или { failed: statusCode }
 function notifyDevice(deviceId, title, body, url) {
-  if (!PUSH_ENABLED || !deviceId) return;
+  if (!PUSH_ENABLED || !deviceId) return Promise.resolve({ ok: false, skipped: true });
   const row = db.prepare(`SELECT sub FROM subs WHERE device_id = ?`).get(deviceId);
-  if (!row) return;
+  if (!row) return Promise.resolve({ ok: false, skipped: true });
   let sub;
-  try { sub = JSON.parse(row.sub); } catch { return; }
-  webpush.sendNotification(sub, JSON.stringify({ title, body, url: url || '/' }))
+  try { sub = JSON.parse(row.sub); } catch { return Promise.resolve({ ok: false, skipped: true }); }
+  return webpush.sendNotification(sub, JSON.stringify({ title, body, url: url || '/' }))
+    .then(() => ({ ok: true }))
     .catch((err) => {
-      if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+      const code = err && err.statusCode;
+      if (code === 404 || code === 410) {
         db.prepare(`DELETE FROM subs WHERE device_id = ?`).run(deviceId); // подписка устарела
+        console.log(`[push] sub ${deviceId.slice(0, 8)}… dead (${code}), removed`);
+      } else if (code === 403) {
+        console.log(`[push] sub ${deviceId.slice(0, 8)}… rejected (403)`);
+      } else if (code) {
+        console.log(`[push] sub ${deviceId.slice(0, 8)}… error ${code}`);
+      } else {
+        console.log(`[push] sub ${deviceId.slice(0, 8)}… error: ${err && err.message}`);
       }
+      return { ok: false, failed: code || 'unknown' };
     });
 }
 
@@ -333,7 +344,7 @@ function tzParts(date) {
   return { weekday: get('weekday'), hour: parseInt(get('hour'), 10), minute: parseInt(get('minute'), 10) };
 }
 
-function sendDailyReminder() {
+async function sendDailyReminder() {
   const now = new Date();
   const { weekday, hour, minute } = tzParts(now);
   const isWeekday = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(weekday);
@@ -344,17 +355,18 @@ function sendDailyReminder() {
   const ins = db.prepare(`INSERT OR IGNORE INTO reminders (date) VALUES (?)`).run(date);
   if (ins.changes === 0) return; // уже отправлено сегодня
 
-  const subs = db.prepare(`SELECT device_id, lang FROM subs`).all();
-  let sent = 0;
+  const subs = db.prepare(`SELECT device_id, lang, updated_at FROM subs`).all();
+  let sent = 0, failed = 0;
   for (const s of subs) {
-    const title = s.lang === 'ru' ? '🍱 Обед' : '🍱 Lunch';
+    const title = s.lang === 'ru' ? 'Обед' : 'Lunch';
     const body = s.lang === 'ru'
       ? `Не забудь отдать свою порцию — если не обедаешь сегодня, отметься!`
       : `Don't forget to give your meal away — if you're not eating today, mark it!`;
-    notifyDevice(s.device_id, title, body);
-    sent++;
+    const r = await notifyDevice(s.device_id, title, body);
+    if (r.ok) sent++; else failed++;
+    console.log(`[reminder] sub ${s.device_id.slice(0, 8)}… ${r.ok ? 'OK' : 'FAIL ' + (r.failed || r.skipped)} (subscribed ${s.updated_at})`);
   }
-  console.log(`[reminder] ${date} ${hour}:${minute} sent to ${sent} subscriber(s)`);
+  console.log(`[reminder] ${date} ${hour}:${minute} → delivered ${sent}, failed ${failed} of ${subs.length}`);
 }
 
 // проверяем каждые 30 секунд
